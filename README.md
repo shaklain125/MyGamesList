@@ -7,11 +7,12 @@ A web-based games recommender system
 
 **Install python 3.6 if windows doesn't have it (python 3.7 may or may not work)**
 
-### FOR WINDOWS 32 BIT
+**FOR WINDOWS 32 BIT**
 https://www.python.org/ftp/python/3.6.8/python-3.6.8.exe
 
-### FOR WINDOWS 64 BIT
+**FOR WINDOWS 64 BIT**
 https://www.python.org/ftp/python/3.6.8/python-3.6.8-amd64.exe
+
 ---
 
 
