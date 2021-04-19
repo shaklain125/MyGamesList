@@ -40,7 +40,7 @@ http://pip.readthedocs.io/en/stable/installing/#do-i-need-to-install-pip
 ```sudo wget https://www.python.org/ftp/python/3.6.9/Python-3.6.9.tgz```
 ```sudo tar -xvf Python-3.6.9.tgz && cd Python-3.6.8 && sudo ./configure && sudo make && sudo make install```
 
-## NOTE
+### NOTE
 **IF YOU GET THIS ERROR THEN RUN THE FOLLOWING**
 ....: UserWarning: Could not import the lzma module. Your installed Python is incomplete....
 
