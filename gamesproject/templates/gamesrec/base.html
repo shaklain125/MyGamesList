@@ -1,0 +1,151 @@
+{% load static %}
+{% load custom_tags %}
+
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    {% comment %} JQuery {% endcomment %}
+    <script src="{% static '/gamesrec/js/jquery-3.4.1.js'%}"></script>
+
+    {% comment %}{% is_dark_mode as dark_mode %}{% endcomment %}
+
+    {% include 'gamesrec/components/stylesheets.html'%}
+
+    {% block css %}
+    {% endblock %}
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <link rel="shortcut icon" type="image/png" href="{% static '/gamesrec/favicon.png' %}"/>
+
+    <title>
+    {% block title %}
+    {% endblock %}
+    - MyGamesList
+    </title>
+
+  </head>
+  <body> {% comment %} data-instant-intensity="mousedown" {% endcomment %}
+
+    {% last_online as l_online %}
+
+    {% navbar_items as navbar_items %}
+
+    {% include "gamesrec/components/_sidenav.html" with navbar_items=navbar_items %}
+
+    <div id="main_parent">
+      <div id="main" class="p-0">
+
+        {% include "gamesrec/components/_navbar.html" with navbar_items=navbar_items %}
+
+        <div id="app" style="margin-top:45px; position: relative;min-height: 100vh;">
+          <div class="container-fluid">
+
+            {% block content %}
+            {% endblock %}
+
+          </div>
+        </div>
+
+
+      {% include "gamesrec/components/_footer.html" %}
+
+
+
+
+
+
+
+
+      </div>
+    </div>
+
+    {% block script %}
+    {% endblock %}
+
+    <script type="text/javascript">
+    var prefetched = []
+    var len_a_t = 0
+    window.onload = function () {
+      prefetch_urls()
+    }
+
+    window.paceOptions = {
+      ajax: false,
+      restartOnRequestAfter: false,
+    }
+
+    function get_popular_searches() {
+      $.ajax({
+        url: `{% url 'gamesrec:get_popular_searches' %}`,
+        method:'POST',
+        data: {'csrfmiddlewaretoken':`{{csrf_token}}`},
+        success: function (data) {
+          $('popularQueries').html(data.result.map(x=>{
+            return `<a href="${x.url}"><span class="chip mr-0">${x.query}</span></a>`
+          }))
+        }
+      })
+    }
+
+    $(document).ready(function(){
+      bsBreakpoints.init();
+      LAX_SETUP()
+      // setInterval(function () {
+      //   // console.log(`pb: ${$('#app').css('padding-bottom')}, h: ${$('footer').height() + 'px'}`);
+      //   if ($('#app').css('padding-bottom') != $('footer').height() + 500 + 'px') {
+      //     $('#app').css('padding-bottom', $('footer').height() + 500 + 'px')
+      //   }
+      // },1)
+
+
+
+      // mdtoast('This is an info toast.', { duration: 10000, type: mdtoast.INFO });
+      // mdtoast('Message archived.', {
+      // type: 'default',
+      // interaction: true, actionText: 'UNDO',
+      // action: function(){
+      //    //TODO: Undo codes here...
+      //    this.hide(); // this is the toast instance
+      //  }
+      // });
+
+
+      // setInterval(function () {
+      //   clearToasts()
+      //   var types = ['error','success','info','warning']
+      //   var css = ['t','tl','tr','tc','b','bc','bl','br']
+      //   var c = css[rnd(0,css.length)]
+      //   // console.log(c);
+      //   var to = new Toast(types[rnd(0,types.length)],c,'Hello')
+      //   // to.timeout = 1000
+      //   to.show()
+      //
+      // },1000)
+
+      // var t =   new Toast('error','t','Hello')
+      // t.closebtn = true
+      // t.timeout = 0
+      // t.show()
+
+      {% if messages %}
+        {% for message in messages %}
+          var t =   new Toast(`{{message.tags}}`,`tr`,`{% autoescape off %}{{message}}{% endautoescape %}`)
+          t.show()
+        {% endfor %}
+      {% endif %}
+    })
+
+    window.addEventListener("resize", function() {
+      lax.updateElements()
+    });
+
+    </script>
+
+    {% include 'gamesrec/components/helperjs.html'%}
+
+    {% include 'gamesrec/components/scripts.html'%}
+
+  </body>
+</html>

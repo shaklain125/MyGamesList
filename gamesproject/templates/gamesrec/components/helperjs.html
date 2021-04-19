@@ -1,0 +1,737 @@
+{% load static %}
+{% load custom_tags %}
+
+<script type="text/javascript">
+{% comment %}
+  function get_cover(url, type='jpg', resize='crop', width=300, height=422) {
+    var cover = `{% url 'gamesrec:cover' url='media_url' resize_method='media_method' image_type='media_type' %}`
+    cover = cover.replace(/media_url/, encodeURIComponent(url))
+    cover = cover.replace(/media_method/g, resize)
+    cover = cover.replace(/media_type/g, type)
+    cover += `?width=${width}&height=${height}`
+    return cover
+  }
+{% endcomment %}
+
+  function set_cover(selector, img_url, callback=null) {
+    $(selector).each(function(index, el) {
+      var imgObj = new Image();
+      imgObj.src = img_url
+      imgObj.onload = function(e){
+
+        var canvas = el
+        var context = canvas.getContext('2d');
+
+        context.clearRect(0, 0, canvas.width, canvas.height)
+
+        context.fillStyle = "black";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        var width = this.width
+        var height = this.height
+        var n_width = height/ (canvas.height/canvas.width)
+        var left = (width/2) - (n_width/2)
+
+        context.drawImage(imgObj, left,0, n_width, height, 0,0, 300,422);
+        if (callback) {
+          callback()
+        }
+      }
+    });
+  }
+
+  function search_url() {
+    return `{% url 'gamesrec:search' %}`
+  }
+
+  function change_theme(mode) {
+    var t = $('#dark_theme_nav')
+    if (mode == false) {
+      t.removeClass('dark-selected').addClass('light-selected')
+      $('#light_icon_t').removeClass('d-none')
+      $('#dark_icon_t').addClass('d-none')
+      $('#app-style').attr('href',"{% static '/gamesrec/css/light.css'%}")
+    }else {
+      t.removeClass('light-selected').addClass('dark-selected')
+      $('#dark_icon_t').removeClass('d-none')
+      $('#light_icon_t').addClass('d-none')
+      $('#app-style').attr('href',"{% static '/gamesrec/css/dark.css'%}")
+    }
+  }
+
+  function update_recsu_manage_list(ids) {
+    $.post(`{% url 'gamesrec:add_or_edit_bool' %}`, {csrfmiddlewaretoken:`{{csrf_token}}`,gids:ids}, function(data, textStatus) {
+      $('.recs_manage_list').each(function(index, el) {
+        var icon = $($(el).find('i'))
+        if (data.result[index]) {
+          icon.removeClass('fas fa-plus').addClass('fas fa-pencil-alt')
+        }else{
+          icon.removeClass('fas fa-pencil-alt').addClass('fas fa-plus')
+        }
+      });
+    })
+  }
+
+
+  function init_recsu_manage_list(ids) {
+    for(var recs_manage_list of $('.recs_manage_list')){
+      var id = $(recs_manage_list).data('id')
+      var gid = $(recs_manage_list).data('gid')
+      {% if not request.user.is_authenticated %}
+      $(`#recs_manage_list-${id}`).click(function () {
+        toastr.clear()
+        {% if not request.user.is_authenticated %}
+        toastr.error('Log in to add this game to your list','', {timeOut: 2000})
+        return false
+        {% else %}
+        return true
+        {% endif %}
+      })
+      {% else %}
+      var atl_modal = atl_edit()
+      atl_modal.on_submit = atl_modal.on_delete = function () {
+        setTimeout(function () {
+          update_recsu_manage_list(ids)
+        },1000)
+      }
+      atl_modal.init(gid, $(`#recs_cover_${id}`).attr('src'), $(`#recs_title_${id}`).text() ,`#recs_manage_list-${id}`, false)
+      {% endif %}
+    }
+  }
+
+  function rec_like(){
+    {% if request.user.is_authenticated %}
+    $('.jbtn-like').on('click',function(){
+      var like_cnt = $(this).find('.like-cnt')
+      $.ajax({
+        url: `{% url 'gamesrec:recs_like' %}`,
+        method:'POST',
+        data: {'csrfmiddlewaretoken':`{{csrf_token}}`,'id':$(this).attr('data-id')},
+        success: function (data) {
+          if(data.cnt != null){
+            like_cnt.html(data.cnt)
+            Snackbar.show({
+              pos: 'bottom-left',
+              text:`${data.liked?'User recommendation liked':'Unliked user recommendation'}`,
+              showAction:false,
+              // backgroundColor:'#388e3c',
+              duration:2000
+            });
+          }
+        }
+      })
+    })
+    {% endif %}
+  }
+
+
+  var s_rating = function (selector, init=true, star_val=false) {
+    var $this = null
+    $this = {
+      selector: selector,
+      rating_methods: {
+        fillstar: function (width) {
+          $(`${$this.selector} .dstar-fill`).css('width',`${10*width}%`)
+        },
+        hint: function (n) {
+          var hints = ["I hate it", "I don't like it", "It's okay", "I like it", "I love it"]
+          var e = Math.round(n / 2) - 1;
+          e = e > 4 ? e = 4 : (e <= 0 ? e = 1 : e)
+          n = n >= 10 ? 10 : void 0 === n ? 0 :n.toFixed(1)
+          return "<b>" + n + "</b> - " + hints[e]
+        },
+        vis_rating: function (n, select=false) {
+          n = parseFloat(n)
+          $this.rating_methods.fillstar(n)
+          $($(`${$this.selector} .dstar-right strong`)[0]).html(parseFloat(n) == 10? 10: n.toFixed(1))
+
+          var index = n != 0 ? (n*2)-1 : 0
+          if (!select) {
+            // $('#id_rating').val(index)
+          }
+
+          $(`${$this.selector} .dstar-prev span`).html($this.rating_methods.hint(n))
+          $(`${$this.selector} .dstar-prev`).css('display','block')
+          $(`${$this.selector} .dstar-prev`).css('left', (n) * (.07 * $(`${$this.selector} .dstar-rating`)[0].clientWidth) + "px")
+        }
+      },
+      enable_disable_rating: function (e) {
+        if (!e) {
+          return
+        }
+        // let f = $('#id_rating').closest('.form-group')
+        if (e.value == 2 || e.value == 5) {
+          // if (!f.hasClass('disabled')) {
+          //   f.addClass('disabled')
+          // }
+          if (!$(`${$this.selector} .dstar-rating`).hasClass('disabled')) {
+            $(`${$this.selector} .dstar-rating`).addClass('disabled')
+          }
+
+          // if (!$('#id_rating').hasClass('disabled')) {
+          //   $('#id_rating').attr('disabled','disabled')
+          // }
+          $(`${$this.selector} .dstar-rating`).data({'rating':0})
+          this.rating_methods.vis_rating(0)
+          $(`${$this.selector} .dstar-prev`).css('display','none')
+        }else {
+          // if (f.hasClass('disabled')) {
+          //   f.removeClass('disabled')
+          // }
+          if ($(`${$this.selector} .dstar-rating`).hasClass('disabled')) {
+            $(`${$this.selector} .dstar-rating`).removeClass('disabled')
+          }
+
+          // if ($('#id_rating').attr('disabled') == 'disabled') {
+          //   $('#id_rating').removeAttr('disabled')
+          // }
+        }
+      },
+      rating_set: function (value=false) {
+        $(`${$this.selector}`).data('star',$this)
+        $(`${$this.selector} .dstar-rating`).data('rating',value?parseFloat(value):0.0)
+        $this.rating_methods.vis_rating(value?parseFloat(value):0.0)
+        $(`${$this.selector} .dstar-prev`).css('display','none')
+        $(`${$this.selector} .dstar-rating`).off('mouseenter').on('mouseenter',function(e){
+          var t = e.offsetX
+          var n = Math.min(Math.max(Math.ceil(t / $(`${$this.selector} .dstar-rating`)[0].clientWidth * 20) / 2, 1), 10);
+          $this.rating_methods.vis_rating(n)
+        })
+
+        $(`${$this.selector} .dstar-rating`).off('mousemove').on('mousemove',function(e){
+          var t = e.offsetX
+          var n = Math.min(Math.max(Math.ceil(t / $(`${$this.selector} .dstar-rating`)[0].clientWidth * 20) / 2, 1), 10);
+          $this.rating_methods.vis_rating(n)
+        })
+
+        $(`${$this.selector} .dstar-rating`).off('click').on('click',function(e){
+          var t = e.offsetX
+          var n = Math.min(Math.max(Math.ceil(t / $(`${$this.selector} .dstar-rating`)[0].clientWidth * 20) / 2, 1), 10);
+          $this.rating_methods.vis_rating(n)
+          $(`${$this.selector} .dstar-rating`).data({'rating':n})
+        })
+
+        $(`${$this.selector} .dstar-rating`).off('mouseleave').on('mouseleave',function(e){
+          $this.rating_methods.vis_rating($(`${$this.selector} .dstar-rating`).data('rating'))
+          $(`${$this.selector} .dstar-prev`).css('display','none')
+        })
+      },
+      rating: function () {
+        return $(`${$this.selector} .dstar-rating`).data('rating')
+      }
+    }
+    if (init) {
+      $this.rating_set(star_val? star_val: false)
+    }
+    return $this
+  }
+
+
+  function hasScrollbar(el) {
+    return el.get(0).scrollHeight > el.height()
+  }
+
+  var atl_open;
+
+  const scroll_width = window.innerWidth - document.documentElement.clientWidth;
+
+  $( window ).resize(function () {
+    if (atl_open) {
+      $('body').attr('style',`overflow:hidden;`)
+      $('body').css({'width': `${$(window).width()-scroll_width}px`})
+    }else{
+      if ($('body').attr('style') || $('body').attr('style') != '') {
+        $('body').attr('style',``)
+        $('body').css({'width': '100%'})
+      }
+    }
+  });
+
+  var atl_edit = function () {
+    var $this = null
+    $this = {
+      game: null,
+      atl_title: null,
+      cover_img: null,
+      anim_show:'',//'animated fadeIn faster', //slideInDown
+      anim_close: '',//'animated fadeOut faster', //slideOutUp
+      rating_methods: {
+        fillstar: function (width) {
+          $('.dstar-fill').css('width',`${10*width}%`)
+        },
+        hint: function (n) {
+          var hints = ["I hate it", "I don't like it", "It's okay", "I like it", "I love it"]
+          var e = Math.round(n / 2) - 1;
+          e = e > 4 ? e = 4 : (e <= 0 ? e = 1 : e)
+          n = n >= 10 ? 10 : void 0 === n ? 0 :n.toFixed(1)
+          return "<b>" + n + "</b> - " + hints[e]
+        },
+        vis_rating: function (n, select=false) {
+          n = parseFloat(n)
+          $this.rating_methods.fillstar(n)
+          $($('.dstar-right strong')[0]).html(parseFloat(n) == 10? 10: n.toFixed(1))
+
+          var index = n != 0 ? (n*2)-1 : 0
+          if (!select) {
+            $('#id_rating').val(index)
+          }
+
+          $('.dstar-prev span').html($this.rating_methods.hint(n))
+          $('.dstar-prev').css('display','block')
+          $('.dstar-prev').css('left', (n) * (.07 * $('.dstar-rating')[0].clientWidth) + "px")
+        }
+      },
+      enable_disable_rating: function (e) {
+        if (!e) {
+          return
+        }
+        let f = $('#id_rating').closest('.form-group')
+        if (e.value == 2 || e.value == 5) {
+          if (!f.hasClass('disabled')) {
+            f.addClass('disabled')
+          }
+          if (!$('.dstar-rating').hasClass('disabled')) {
+            $('.dstar-rating').addClass('disabled')
+          }
+
+          if (!$('#id_rating').hasClass('disabled')) {
+            $('#id_rating').attr('disabled','disabled')
+          }
+          $('.dstar-rating').data({'rating':0})
+          this.rating_methods.vis_rating(0)
+          $('.dstar-prev').css('display','none')
+        }else {
+          if (f.hasClass('disabled')) {
+            f.removeClass('disabled')
+          }
+          if ($('.dstar-rating').hasClass('disabled')) {
+            $('.dstar-rating').removeClass('disabled')
+          }
+
+          if ($('#id_rating').attr('disabled') == 'disabled') {
+            $('#id_rating').removeAttr('disabled')
+          }
+        }
+      },
+      rating_set: function () {
+        // var init = function () {
+        //   let value = parseFloat($('#id_rating').find("option:selected").text())
+        //   $('.dstar-rating').data({'rating':value,'o_rating':value})
+        //   atl_edit.rating_methods.fillstar(value)
+        //   $($('.dstar-right strong')[0]).html(value)
+        // }
+        //
+        // init()
+
+        $('#id_rating').off('change').on('change',function () {
+          var n = parseFloat($(this).find("option:selected").text())
+          if (n) {
+            $this.rating_methods.vis_rating(n,true)
+            $('.dstar-rating').data({'rating':n})
+          }else {
+            $this.rating_methods.vis_rating(0,true)
+            $('.dstar-rating').data({'rating':0})
+          }
+          $('.dstar-prev').css('display','none')
+        })
+
+        $('.dstar-rating').off('mouseenter').on('mouseenter',function(e){
+          var t = e.offsetX
+          var n = Math.min(Math.max(Math.ceil(t / $('.dstar-rating')[0].clientWidth * 20) / 2, 1), 10);
+          $this.rating_methods.vis_rating(n)
+        })
+
+        $('.dstar-rating').off('mousemove').on('mousemove',function(e){
+          var t = e.offsetX
+          var n = Math.min(Math.max(Math.ceil(t / $('.dstar-rating')[0].clientWidth * 20) / 2, 1), 10);
+          $this.rating_methods.vis_rating(n)
+        })
+
+        $('.dstar-rating').off('click').on('click',function(e){
+          var t = e.offsetX
+          var n = Math.min(Math.max(Math.ceil(t / $('.dstar-rating')[0].clientWidth * 20) / 2, 1), 10);
+          $this.rating_methods.vis_rating(n)
+          $('.dstar-rating').data({'rating':n})
+        })
+
+        $('.dstar-rating').off('mouseleave').on('mouseleave',function(e){
+          $this.rating_methods.vis_rating($('.dstar-rating').data('rating'))
+          $('.dstar-prev').css('display','none')
+        })
+      },
+      init_form: false,
+      parent: '#atl_g',
+      atl_form_init: function (show=true) {
+        var form_proc = function () {
+          set_cover('#atl-cover-img', $this.cover_img, function () {
+            $('#atl-cover-img').addClass('animated fadeIn faster')
+          })
+          $('#atl_title').html($this.atl_title)
+          // atl_edit._init(game_id, cover_img, atl_title, click_el)
+          $('#id_status').off('change').on('change',function () {
+            $this.enable_disable_rating(this)
+          })
+
+          $('#atlModal').off('show.bs.modal').on('show.bs.modal',function () {
+            $('body').attr('style',`overflow:hidden;`)
+            $('body').css({'width': `${$(window).width()-1}px`})
+            atl_open = true;
+          })
+
+          $('#atlModal').off('hidden.bs.modal').on('hidden.bs.modal',function () {
+            $('body').attr('style',``)
+            $('body').css({'width': '100%'})
+            atl_open = false;
+            $($this.click_el).removeClass('clicked')
+          })
+
+          $this.rating_set()
+
+          var close_anim = function () {
+            if ($('#atlModal').hasClass('_shown')) {
+              $('#atlModal').removeClass('_shown')
+              $('#atl_modal').removeClass($this.anim_show)
+            }
+            $('#atlModal').addClass('_closed')
+            $('#atl_modal').addClass($this.anim_close)
+            var close = true
+            if($this.anim_close.length == 0){
+              if (close) {
+                $('#atlModal').modal('hide')
+                close = false
+              }
+            }else{
+              $('#atl_modal').off('animationend').on('animationend',function(){
+                if (close) {
+                  $('#atlModal').modal('hide')
+                  close = false
+                }
+              })
+            }
+          }
+
+          var reset_atl_form = function () {
+            $('#atl-form')[0].reset()
+            $('.dstar-rating').data('rating',parseFloat($('#id_rating').find("option:selected").text()))
+            $this.rating_methods.vis_rating($('#id_rating').find("option:selected").text())
+            $('.dstar-prev').css('display','none')
+          }
+
+          $('.close_modal').off('click').on('click',function () {
+            close_anim()
+          })
+
+          $('#cancel_modal').off('click').on('click',function () {
+            reset_atl_form()
+            close_anim()
+          })
+
+          $('#atl-form').off('submit').on('submit',function(e){
+            e.preventDefault()
+            var f = new FormData(this)
+            f.append('game',$this.game)
+            $.ajax({
+              url: "{% url 'gamesrec:list_action'  %}",
+              method:'POST',
+              data: f,
+              success: function (data) {
+                if(data['result'] == 'created_updated')
+                {
+                }
+              },
+              cache: false,
+              contentType: false,
+              processData: false
+            })
+            $this.on_submit()
+            // $('#add_to_list').html($('#id_status').find("option:selected").text())
+            $('#delete_modal').removeClass('d-none')
+            close_anim()
+          })
+
+          $('#delete_modal').off('click').on('click',function () {
+            var f = new FormData($('#atl-form')[0])
+            f.append('game',$this.game)
+            f.append('method','delete')
+            $.ajax({
+              url: "{% url 'gamesrec:list_action'  %}",
+              method:'POST',
+              data: f,
+              success: function (data) {
+                if(data['result'] == 'deleted')
+                {
+                  reset_atl_form()
+                  if (!$('#delete_modal').hasClass('d-none')) {
+                    $('#delete_modal').addClass('d-none')
+                    $('#atl-form')[0].reset()
+                    $('.dstar-rating').data('rating',0.0)
+                    $this.rating_methods.vis_rating(0.0)
+                    $('.dstar-prev').css('display','none')
+                  }
+                }
+              },
+              cache: false,
+              contentType: false,
+              processData: false
+            })
+            $this.on_delete()
+            // $('#add_to_list').html(`<i class="far fa-plus"></i> Add to List`)
+            close_anim()
+          })
+
+          $($('.left-menu').find('.nav-link')[1]).off('click').on('click',function () {
+            if (!$(this).hasClass('active')) {
+              $($('.left-menu').find('.nav-link')[0]).removeClass('active')
+              $($($('.col-sm-9.atl_col')[0]).children()[0]).addClass('d-none')
+              $(this).addClass('active')
+
+              var s = get_spinner({
+                id:'history_ratings-spinner',
+                classes:'animated fadeIn faster mt-3'
+              },$('.history_atl'))
+
+              var history_atl = `<div class="padding history_atl d-none" style="min-height: 343px;">
+                <h5>Timeline</h5>
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Overall Rating</th>
+                      <th>Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+
+                  </tbody>
+                </table>
+              </div>
+              `
+              var p = $($($('.col-sm-9.atl_col')[0]).children()[0]).parent()
+              p.append(history_atl)
+              $(s).insertBefore('.history_atl')
+              $.ajax({
+                url: "{% url 'gamesrec:list_item_rating_history'  %}",
+                method:'POST',
+                data: {
+                  game:$this.game,
+                  'csrfmiddlewaretoken':`{{csrf_token}}`
+                },
+                success: function (data) {
+                  $('#history_ratings-spinner').remove()
+                  var p_his = $($(p).find('.history_atl')[0])
+                  var t = p_his.find('table tbody')[0]
+                  for (var r of data['result']) {
+                    var r_t = parseFloat(r['rating'])? parseFloat(r['rating']) : 0.0
+                    var row = `<tr>
+                      <td>${r['status']}</td>
+                      <td>
+                        <div class="dstar-wrapper dstar-small">
+                          <div class="dstar-rating dstar-small disabled">
+                            <div class="dstar-fill" style="width: ${10*r_t}%;"></div>
+                          </div>
+                          <div class="dstar-right">
+                            <strong>${parseFloat(r['rating'])?parseFloat(r['rating']) == 10? 10 : parseFloat(r['rating']).toFixed(1):'0.0'}</strong>/10
+                          </div>
+                        </div>
+                      </td>
+                      <td>${r['timestamp']}</td>
+                    </tr>`
+                    $(t).append(row)
+                  }
+                  p_his.removeClass('d-none')
+                }
+              })
+            }
+          })
+
+          $($('.left-menu').find('.nav-link')[0]).off('click').on('click',function () {
+            if (!$(this).hasClass('active')) {
+              $('.history_atl').remove()
+              $($($('.col-sm-9.atl_col')[0]).children()[0]).removeClass('d-none')
+              $($('.left-menu').find('.nav-link')[1]).removeClass('active')
+              $(this).addClass('active')
+            }
+          })
+
+          $.ajax({
+            url: "{% url 'gamesrec:list_action'  %}",
+            method:'POST',
+            data: {
+              'method': 'get',
+              'game': $this.game,
+              'csrfmiddlewaretoken':`{{csrf_token}}`
+            },
+            success: function (data) {
+              if (data['result'] != null) {
+                var init = function () {
+                  $('#id_rating').val(data['result']['rating'])
+
+                  $('#id_status').val(data['result']['status'])
+
+                  $this.on_init()
+                  // $('#add_to_list').html($('#id_status').find("option:selected").text())
+
+                  $('#id_notes').html(data['result']['notes'])
+
+                  let value = parseFloat($('#id_rating').val() != 0? $('#id_rating').find("option:selected").text() : 0)
+                  $('.dstar-rating').data({'rating':value,'o_rating':value})
+                  $this.rating_methods.fillstar(value)
+                  $($('.dstar-right strong')[0]).html(parseFloat(value) == 10? 10: value.toFixed(1))
+
+                  $this.enable_disable_rating($('#id_status')[0])
+
+                  if ($('#delete_modal').hasClass('d-none')) {
+                    $('#delete_modal').removeClass('d-none')
+                  }
+                }
+                init()
+                $($('.left-menu').find('.nav-link')[1]).removeClass('d-none')
+              }else {
+                $('#id_rating').val(0)
+
+                $('#id_status').val(0)
+
+                $('#id_notes').html('')
+
+                // $('#add_to_list').html(`<i class="far fa-plus"></i> Add to List`)
+
+                $this.on_create()
+
+                $('.dstar-rating').data({'rating':0,'o_rating':0})
+
+                $('.dstar-prev').css('display','none')
+
+                $this.rating_methods.fillstar(0)
+
+                $($('.dstar-right strong')[0]).html((0).toFixed(1))
+
+                $this.enable_disable_rating($('#id_status')[0])
+
+                $('#delete_modal').addClass('d-none')
+                $($('.left-menu').find('.nav-link')[1]).addClass('d-none')
+              }
+              if (show) {
+                $this.on_form_shown()
+                $('#atlModal').modal('show')
+              }else {
+                $this.init_form = true
+              }
+            },
+          })
+        }
+
+        if ($this.init_form) {
+          form_proc()
+          $this.init_form = false
+        }else {
+          $($this.parent).html('')
+
+          $.ajax({
+            url: "{% url 'gamesrec:atl_edit_form'  %}",
+            method:'POST',
+            data:{
+              'game': $this.game,
+              'csrfmiddlewaretoken':`{{csrf_token}}`
+            },
+            success: function (data) {
+              // console.log(data);
+              $($this.parent).html(data)
+              $('#atlModal').addClass('_shown')
+              $('#atl_modal').addClass($this.anim_show)
+              form_proc()
+            }
+          })
+        }
+
+
+        // $($('.left-menu').find('.nav-link')[0]).click()
+
+
+      },
+      init: function (game_id, cover_img, atl_title, click_el, load) {
+
+        if ($(`${$this.parent}`).length == 0) {
+          if ($this.parent.slice(0,1) == '#') {
+            $('body').append(`<div id="${$this.parent.replace('#','')}"></div>`)
+          }else{
+            $('body').append(`<div class="${$this.parent.replace('.','')}"></div>`)
+          }
+        }
+
+        if(!$('#atlModal').hasClass('_shown')){
+          $this.remove()
+        }
+
+        $this.atl_title = atl_title
+        $this.cover_img = cover_img
+        $this.game = game_id
+        $this.click_el = click_el
+
+        $($this.click_el).off('click').on('click',function () {
+
+          if (!$(this).hasClass('clicked')) {
+            $(this).addClass('clicked')
+            $this.on_click(this)
+          }else {
+            return
+          }
+
+          if (!$this.on_click_error_handler()) {
+            return
+          }
+          if($('#atlModal').hasClass('_closed'))
+          {
+            $('#atlModal').removeClass('_closed')
+            $('#atl_modal').removeClass($this.anim_close)
+          }
+
+          if(!$('#atlModal').hasClass('_shown'))
+          {
+            $('#atlModal').addClass('_shown')
+            $('#atl_modal').addClass($this.anim_show)
+          }
+
+          $this.atl_form_init()
+
+        })
+
+        if (load) {
+          $this.atl_form_init(false)
+        }
+
+      },
+      click_el: null,
+      on_init: function () {},
+      on_submit: function () {},
+      on_create: function () {},
+      on_delete: function () {},
+      on_click: function (e) {},
+      on_form_shown: function () {},
+      on_click_error_handler: function () {return true},
+      remove: function () {
+        $('#id_rating').off('change')
+        $('.dstar-rating').off('mouseenter')
+        $('.dstar-rating').off('mousemove')
+        $('.dstar-rating').off('click')
+        $('.dstar-rating').off('mouseleave')
+        $('#id_status').off('change')
+        $('#atlModal').off('show.bs.modal')
+        $('#atlModal').off('hidden.bs.modal')
+        $('#atlModal').off('animationend')
+        $('.close_modal').off('click')
+        $('#cancel_modal').off('click')
+        $('#atl-form').off('submit')
+        $('#delete_modal').off('click')
+        $($('.left-menu').find('.nav-link')[1]).off('click')
+        $($('.left-menu').find('.nav-link')[0]).off('click')
+        $($this.click_el).off('click')
+        $('#atlModal').modal('hide')
+        $('#atlModal').modal('dispose')
+        $($this.parent).html('')
+      }
+    }
+    return $this
+  }
+
+
+</script>

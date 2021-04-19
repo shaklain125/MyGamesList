@@ -1,0 +1,113 @@
+{% extends "gamesrec/base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+<html>
+
+{% block title %}
+
+  Sign up
+
+{% endblock %}
+
+{% block script %}
+<script>
+
+function errorhandlers() {
+  $('form#signupfrm :input').each(function() {
+    var input = $(this);
+    $(this).off('keydown').on('keydown', function(e) {
+      input.nextAll('p.invalid-feedback').remove();
+    });
+    input.nextAll('p.invalid-feedback').remove();
+  });
+}
+$(document).ready(function() {
+  Load_page_async(function () {
+
+    errorhandlers()
+    $('form#signupfrm').submit(function(e) {
+      e.preventDefault();
+      var formdata = $('form#signupfrm').serializeArray()
+      $.ajax({
+        url: "{% url 'gamesrec:register' %}",
+        method:'POST',
+        data: formdata,
+        success: function (data) {
+          errorhandlers()
+          clearToasts()
+          if(data.valid)
+          {
+            // toastr.success(data.msg);
+            // new Toast('success','tr',data.msg).show()
+            window.location.href = data.redirect
+          }else {
+            for (var i = 0; i < data.msg.length; i++) {
+              var fieldnm = data.msg[i][0]
+              var errormsgs = data.msg[i][1]
+              var fieldid = 'id_' + fieldnm
+              for (var j = errormsgs.length-1; j > -1 ; j--) {
+                $(`<p id="error_`+(j+1).toString()+`_`+fieldid+`" class="invalid-feedback" style="display:block;">
+                <strong>
+                  `+errormsgs[j]+`
+                  </strong>
+                  </p>`).insertAfter('#'+fieldid)
+              }
+            }
+          }
+        },
+      })
+    });
+
+  })
+});
+</script>
+{% endblock %}
+
+{% block content %}
+
+<div class="container content rounded p-2 p-xl-4 p-lg-4 p-md-4 p-sm-3 p-xs-2">
+
+  <div class="row p-2 p-xl-4 p-lg-4 p-md-4 p-sm-3 p-xs-2">
+    <div class="col-lg-6 col-md-6">
+      <div>
+        <div class="mt-3">
+          <h5 class="font-weight-bold mb-3">Sign up</h5>
+          <form id="signupfrm">
+            {% csrf_token %}
+            {{form | crispy}}
+            <button class="text-uppercase btn text-white themebgclr btn-md btn-block btn-rounded m-0 mb-3" type="submit" name="">
+              Sign up
+            </button>
+
+          </form>
+        </div>
+      </div>
+      <div style="position: relative;margin: 40px 0;border-bottom: 1px solid rgba(120, 130, 140, .13);display: block;">
+        <span style="position: absolute;left: 45%;top: -19px;border-radius: 500px;font-size: 14px;padding: 0;width: 2.25rem;height: 2.25rem;line-height: 2.25rem;overflow: hidden;font-weight: 500;
+    outline: 0!important;text-align: center;font-weight:normal;">
+          OR
+        </span>
+      </div>
+      <a href="{% url 'gamesrec:login' %}" class="btn btn-unique btn-block btn-md  m-0 mb-5"><i class="fas fa-envelope pr-2 float-left mt-1 ml-0 mb-0" aria-hidden="true"></i><span >Sign in with E-mail</span></a>
+    </div>
+    <div class="col-lg-6 col-md-6">
+      <div class="row">
+        <div class="col-lg-offset-1 col-lg-10">
+          <h5 class="m-b">Don't have an account?</h5>
+          <p><b>Sign up for MyGamesList. It's free and only takes about 30 seconds!</b></p>
+          <p>While you don't have to Sign up in order to view the information on Games, making an account has a lot of benefits.</p>
+          <ul class="features">
+            <li>Make your own Games List</li>
+            <li>Create game reviews</li>
+            <li>Contribute to the ever growing database</li>
+            <li>Much more ~</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+</html>

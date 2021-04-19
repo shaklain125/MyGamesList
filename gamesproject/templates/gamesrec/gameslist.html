@@ -1,0 +1,435 @@
+{% extends "gamesrec/base.html"  %}
+{% load static %}
+{% load media %}
+{% load custom_tags %}
+
+
+{% block title %}
+
+{{user.username}}'s Games List
+
+{% endblock %}
+
+{% block script %}
+
+<script>
+
+function saveData(options) {
+  var url = window.URL.createObjectURL(new Blob([options.data], {type: "octet/stream"}))
+  var a = $(`<a class="d-none" href="${url}" download="${options.filename}"></a>`)[0];
+  $('rmlink').html(a)
+  a.click();
+  window.URL.revokeObjectURL(url);
+  $('rmlink').html('')
+}
+
+function cdisp_fname(response, status, xhr){
+    var filename = "";
+    var disposition = xhr.getResponseHeader('Content-Disposition');
+    if (disposition && disposition.indexOf('attachment') !== -1) {
+        var filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+        var matches = filenameRegex.exec(disposition);
+        if (matches != null && matches[1]) {
+          filename = matches[1].replace(/['"]/g, '');
+        }
+    }
+    return filename
+}
+
+function load_lists(reload=false){
+  {% if request.user.is_authenticated and request.user == user and list_type == None  %}
+  var allexp = $(`
+  <aexp>
+    <button type="button" id="all_export_btn" class="mdl-button mdl-js-button mdl-js-ripple-effect color-inherit float-right" style="font-weight:500;"><span class="material-icons">get_app</span> Export All</button>
+    <div class="mdl-tooltip" data-mdl-for="all_export_btn">Export All Lists</div>
+  </aexp>
+  `)
+  allexp.find('button').on('click',function () {
+    var e_btn = $(this)
+    if (e_btn.data('exported')) {
+      return
+    }
+    e_btn.data('exported', true)
+    $.ajax({
+      url: `{% url 'gamesrec:export_list' %}`,
+      method:'POST',
+      data: {'csrfmiddlewaretoken':`{{csrf_token}}`, 'status':'all'},
+      success: function (data, status, xhr) {
+        saveData({data:data, filename:cdisp_fname(data, status, xhr)})
+        e_btn.data('exported', false)
+      }
+    })
+  })
+  $('allexp').html(allexp)
+  componentHandler.upgradeElement($('allexp').find('button')[0]);
+  {% endif %}
+  var t_classes = `table table-striped table-borderless table-sm`
+  var t_head_classes = `elegant-color white-text`
+
+  var process_data = function (data) {
+    var lists = data['lists']
+    var t_template = function (t_id, t_rows) {
+      var t = `
+      <div class="mt-4 pt-3 pb-2 pl-3 box mb-0 t_header">
+      <h6>
+        ${unslugify(t_id)}
+      </h6>
+      <export_list></export_list>
+      </div>
+      <div class="table-responsive-xs">
+        <table id="${t_id}" class="${t_classes}" cellspacing="0" width="100%">
+          <thead class="${t_head_classes}">
+            <tr>
+              <th class="th-sm show-sm-up t_index">#
+              </th>
+              <th class="th-sm t_title">Title
+              </th>
+              <th class="th-sm t_year">Year
+              </th>
+              <th class="th-sm t_score">Score
+              </th>
+              {% if request.user.is_authenticated and request.user == user %}
+              <th class="th-sm show-sm-up t_notes">Notes
+              </th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        </table>
+      </div>
+      `
+      return t
+    }
+    var t_row = function (row, c) {
+      var td = `<tr><td class="show-sm-up">${c}</td>`
+      for (var i of row) {
+        if (typeof(i) == 'object') {
+          td += `<td class="${i[1]}">${i[0]}</td>`
+        }else{
+          td += `<td>${i}</td>`
+        }
+      }
+      td += '</tr>'
+      return td
+    }
+    if (lists.length > 0){
+      $('#lists').html('')
+      var empty_tbls = []
+      for (var ty of lists) {
+        var k = Object.keys(ty)[0]
+        {% if request.user.is_authenticated and request.user == user %}
+        var export_list = $(`
+        <exp>
+          <button id="export_${k}_btn" class="mdl-button mdl-js-button mdl-button--icon mr-2 m-t-sm d-block float-right" style="position: absolute;top: 0;right: 0;"><span class="material-icons">get_app</span></button>
+          <div class="mdl-tooltip" data-mdl-for="export_${k}_btn">Export List</div>
+        </exp>
+        `)
+        export_list.find('button').data('status', k)
+        export_list.find('button').on('click',function () {
+          var e_btn = $(this)
+          if (e_btn.data('exported')) {
+            return
+          }
+          e_btn.data('exported', true)
+          $.ajax({
+            url: `{% url 'gamesrec:export_list' %}`,
+            method:'POST',
+            data: {'csrfmiddlewaretoken':`{{csrf_token}}`, 'status':e_btn.data('status')},
+            success: function (data, status, xhr) {
+              saveData({data:data, filename:cdisp_fname(data, status, xhr)})
+              e_btn.data('exported', false)
+            }
+          })
+        })
+        {% endif %}
+        var t_tbl = $(t_template(`${k}`))
+        {% if request.user.is_authenticated and request.user == user %}
+        t_tbl.find('export_list').html(export_list)
+        {% endif %}
+        $('#lists').append(t_tbl)
+        {% if request.user.is_authenticated and request.user == user %}
+        componentHandler.upgradeElement(t_tbl.find('export_list > exp').find('button')[0]);
+        componentHandler.upgradeElement(t_tbl.find('export_list > exp').find('.mdl-tooltip')[0]);
+        {% endif %}
+        // console.log($(`#${k}`).find('tbody').html())
+        var c = 1
+        for (var row of ty[k]) {
+          // console.log(row)
+          var r_d = t_row([`<a id="tr-d-${row.game.id}" class="tr_d" href="${row.game.url}">${row.game.name}
+            {% if user == request.user %}
+            <a class="btn btn-white simple btn-manage-list" id="l-btn-edit-${row.game.id}" data-id="28686"><span><i class="fas fa-pencil-alt mr-2"></i> EDIT</span></a>
+            {% endif %}
+          </a>
+          `,row.game.year,
+          `
+          <span class="rating mr-1"><span class="fill" id="l-star-${row.game.id}" style="width:0%"></span></span>
+          <span id="l-rating-${row.game.id}" class="p-l-xs text-sm score" data-rating="${row.rating}">${row.rating}</span>
+          `,
+          {% if request.user.is_authenticated and request.user == user %}
+          [`<span>${row.notes.slice(0,15)}${row.notes.length > 15? '...': ''}</span>`,'show-sm-up']{% endif %}], c)
+          $(`#${k}`).find('tbody').append(r_d)
+          var r = parseFloat($(`#l-rating-${row.game.id}`).attr('data-rating')) //Math.round(((8.5/10)*5) *10)/10
+          set_star_rating_fa(`#l-star-${row.game.id}`, r)
+          c+=1
+          {% if user == request.user %}
+
+          var atl_modal = atl_edit()
+
+
+          if ($(`#${k}`).data('l')) {
+            $(`#${k}`).data('l').push(atl_modal)
+          }else {
+            $(`#${k}`).data('l',[atl_modal])
+          }
+
+          // console.log($(el).attr('data-id'), url, $($(el).find('.title')[0]).html() ,`#${$($(el).find('.btn-manage-list')[0]).attr('id')}`, false);
+
+          atl_modal.on_submit = atl_modal.on_delete = function () {
+            // atl_modal.remove()
+            setTimeout(function () {
+              load_lists(true)
+            }, 1000);
+          }
+
+          // console.log(row.game.id, row.game.cover, row.game.title ,`#${$(`#tr-d-${row.game.id}`).next().attr('id')}`, false)
+
+          atl_modal.init(row.game.id, row.game.cover, row.game.title ,`#${$(`#tr-d-${row.game.id}`).next().attr('id')}`, false)
+          {% endif %}
+        }
+        if (c-1 == 0) {
+          empty_tbls.push(`#${k}`)
+        }
+        // tbls.push(t_template(r))
+
+        // console.log(ty,);
+      }
+    }
+    try {
+      // d_table.destroy()
+    } catch (e) {
+
+    } finally {
+
+    }
+    if (!$.fn.dataTable.isDataTable('table')) {
+      d_table = $('table').DataTable({
+        // "order": [[ 3, "desc" ]],
+        'searching':false,
+        'paging':false,
+      });
+
+      $('.dataTables_length').addClass('bs-select');
+    }else{
+      d_table = $('table').DataTable();
+
+      // $('.dataTables_length').addClass('bs-select');
+    }
+    for (var emp of empty_tbls) {
+      $(`${emp}`).find('tbody').html('')
+      $($(`${emp}`).find('th')[0]).click().click()
+    }
+  }
+
+  // $.ajax({
+  //   url: `{% url 'gamesrec:get_games_lists' %}`,
+  //   method: 'POST',
+  //   data: {user:'{{user.username}}',csrfmiddlewaretoken:`{{csrf_token}}`,list_type:`{{list_type}}`},
+  //   success:
+  // })
+  Load_page_async(function () {
+    load_l_xhr = $.post(`{% url 'gamesrec:get_games_lists' %}`, {user:'{{user.username}}',csrfmiddlewaretoken:`{{csrf_token}}`,list_type:`{{list_type}}`}, function(data, textStatus) {
+      process_data(data)
+    })
+  })
+}
+
+window.onhashchange = function() {
+ try { load_l_xhr.abort(); } catch(e){}
+}
+
+var load_l_xhr;
+
+var d_table = null;
+
+$(document).ready(function() {
+
+  console.log(`{{list_type}}`);
+  load_lists()
+});
+
+
+</script>
+
+{% endblock  %}
+
+{% block content %}
+<div class="box m-b show-only-xs-up">
+  <ul class="nav nav-tabs">
+    <li class="page-item nav-item {% if list_type == None %}active{% endif %}"><a class="nav-link" href="{{status_link_path}}">All</a></li>
+    <li class="page-item nav-item {% if list_type == 'playing' %}active{% endif %}"><a class="nav-link" href="{{status_link_path}}playing">Currently Playing</a></li>
+    <li class="page-item nav-item {% if list_type == 'completed' %}active{% endif %}"><a class="nav-link" href="{{status_link_path}}completed">Completed</a></li>
+    <li class="page-item nav-item {% if list_type == 'on-hold' %}active{% endif %}"><a class="nav-link" href="{{status_link_path}}on-hold">On Hold</a></li>
+    <li class="page-item nav-item {% if list_type == 'dropped' %}active{% endif %}"><a class="nav-link" href="{{status_link_path}}dropped">Dropped</a></li>
+    <li class="page-item nav-item {% if list_type == 'plan-to-play' %}active{% endif %}"><a class="nav-link" href="{{status_link_path}}plan-to-play">Plan to Play</a></li>
+    <li class="page-item nav-item {% if list_type == 'not-interested' %}active{% endif %}"><a class="nav-link" href="{{status_link_path}}not-interested">Not Interested</a></li>
+  </ul>
+</div>
+
+<select class="browser-default custom-select show-only-xs" id="l_select" onchange="window.location.href = this.value ">
+  <option value="{{status_link_path}}" {% if list_type == None %}selected{% endif %}>All</option>
+  <option value="{{status_link_path}}playing" {% if list_type == 'playing' %}selected{% endif %}>Currently Playing</option>
+  <option value="{{status_link_path}}completed" {% if list_type == 'completed' %}selected{% endif %}>Completed</option>
+  <option value="{{status_link_path}}on-hold" {% if list_type == 'on-hold' %}selected{% endif %}>On Hold</option>
+  <option value="{{status_link_path}}dropped" {% if list_type == 'dropped' %}selected{% endif %}>Dropped</option>
+  <option value="{{status_link_path}}plan-to-play" {% if list_type == 'plan-to-play' %}selected{% endif %}>Plan to Play</option>
+  <option value="{{status_link_path}}not-interested" {% if list_type == 'not-interested' %}selected{% endif %}>Not Interested</option>
+</select>
+<allexp class="col-12 p-0 d-flex mt-3" style="flex-direction: row-reverse;"></allexp>
+<div id="lists">
+</div>
+<rmlink style="visibility:collapse;"></rmlink>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{% block css %}
+
+<style>
+
+  .show-only-xs-up {
+    display: none
+  }
+
+  @media (min-width:789px) {
+    .show-only-xs {
+      display: none !important;
+    }
+  }
+
+  @media (min-width:789px) {
+    .show-only-xs-up {
+      display: block
+    }
+  }
+
+table.dataTable thead .sorting:after,
+table.dataTable thead .sorting:before,
+table.dataTable thead .sorting_asc:after,
+table.dataTable thead .sorting_asc:before,
+table.dataTable thead .sorting_asc_disabled:after,
+table.dataTable thead .sorting_asc_disabled:before,
+table.dataTable thead .sorting_desc:after,
+table.dataTable thead .sorting_desc:before,
+table.dataTable thead .sorting_desc_disabled:after,
+table.dataTable thead .sorting_desc_disabled:before {
+bottom: .5em;
+}
+
+.show-sm-up {
+  display: none;
+}
+
+.nav-tabs .active{
+  background-color:#37474F !important;
+  color: #B2B2B2 !important;
+  border-radius: 4px;
+}
+
+.nav-tabs{
+  background-color: transparent !important;
+  color: var(--box-text-color) ;
+  border: 0;
+}
+
+.t_header{
+  border-radius: 5px 0px 5px 0px !important;
+}
+
+@media (min-width:768px) {
+  .show-sm-up {
+    display: table-cell;
+    /* display: block; */
+  }
+}
+
+td{
+  font-weight: normal !important;
+}
+
+th.t_title{
+  /* width: 370px !important; */
+}
+
+th.t_year{
+  width: 55px !important;
+}
+
+th.t_index{
+  width: 50px !important;
+}
+
+th.t_score{
+  width: 130px !important;
+}
+
+th.t_notes{
+  width: 130px !important;
+}
+
+#l_select{
+  line-height: 45px;
+  height: auto;
+}
+
+.dataTables_info{
+  display: none;
+}
+
+table {
+  background-color:var(--box-bg-color)!important;
+  color:var(--box-text-color)!important;
+  font-size: 14px !important;
+  font-family: inherit !important;
+  font-weight: normal !important;
+}
+
+.btn-manage-list.simple {
+    color: #1675b6!important;
+    font-size: 90%;
+    font-weight: 400;
+    padding: .25em .4em;
+    border-radius: 3px;
+    line-height: auto;
+    margin-right:10px;
+    display: inline-block;
+    border: 1px solid rgba(2,117,216,.17);
+    min-width: 32px;
+    float:right;
+}
+
+
+/* thead{
+  background-color: var(--theme-bg-color) !important;
+  color: white;
+} */
+
+</style>
+
+{% endblock %}

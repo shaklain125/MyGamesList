@@ -1,0 +1,977 @@
+{% extends "gamesrec/base.html" %}
+{% load static %}
+{% load custom_tags %}
+{% load mptt_tags %}
+{% load crispy_forms_tags %}
+{% load crispy_forms_field %}
+
+<html>
+
+{% block title %}
+Comments
+{% endblock %}
+
+
+{% block css %}
+<style>
+.comment_ta {
+  min-height: 33px;
+  height: 33px;
+  width:100%;
+  overflow:hidden !important;
+  resize: none !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  background-color: transparent !important;
+  padding-left: 1px !important;
+  box-shadow: none !important;
+}
+
+.comment_ta:focus {
+  width:100%;
+  overflow:hidden !important;
+  resize: none !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  background-color: transparent !important;
+  padding-left: 1px !important;
+}
+
+.user_icon {
+  background-color: white !important;
+  background-image: url("data:image/svg+xml,%3Csvg aria-hidden='true' focusable='false' data-prefix='fas' data-icon='user' class='svg-inline--fa fa-user fa-w-14' role='img' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='currentColor' d='M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48v-41.6c0-74.2-60.2-134.4-134.4-134.4z'%3E%3C/path%3E%3C/svg%3E");
+  line-height: 0;
+  -webkit-transition: opacity .3s;
+  transition: opacity .3s;
+  background-repeat: no-repeat;
+  background-position: 50%;
+  background-size: contain;
+  display: inline-block;
+  background-size: 30px;
+  background-position-y: 6px;
+}
+
+
+.c_text_read_more {
+    color:#6c757d!important;
+    letter-spacing: 0.5pt;
+    font-size: inherit;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.c_text_read_more:hover{
+  text-decoration: underline;
+}
+
+.rating_c{
+  min-width: 24px !important;
+  width: 24px;
+  height: 24px;
+  font-size: inherit;
+  overflow: inherit;
+  color:inherit;
+  background-color:transparent;
+}
+
+.rating_c i {
+  font-size: inherit;
+
+  position: absolute;
+  left: 5px;
+}
+
+.c_like i {
+  top: 5px;
+  left: 5px;
+}
+
+.c_dislike i{
+  top: 7px;
+  left: 5px;
+}
+
+.rating_c:hover{
+  color: var(--rating-hover) !important;
+  /* background-color:transparent; */
+}
+
+.rated_c{
+  color:var(--rating-hover);
+}
+
+</style>
+{% endblock %}
+
+{% block script %}
+
+<script>
+
+function comment_box_ta(options){
+
+  var el_selector = options.component.find('textarea')
+
+  var xhr_url = options.xhr_url
+
+  var public = options.public
+
+  var hide_buttons = function (el) {
+    $(el).parent().find('.comment').hide()
+    $(el).parent().find('.cancel_comment').hide()
+  }
+
+  var show_buttons = function (el) {
+    $(el).parent().find('.comment').show()
+    $(el).parent().find('.cancel_comment').show()
+  }
+
+  hide_buttons(el_selector)
+
+  $(el_selector).parent().find('.comment').removeClass('d-none')
+  $(el_selector).parent().find('.cancel_comment').removeClass('d-none')
+
+  $(el_selector).bind('input propertychange',function () {
+    {% if not request.user.is_authenticated %}
+    toastr.clear()
+    toastr.error('Log in to comment','', {timeOut: 2000})
+    return
+    {% endif %}
+    if ($(this).val().length != 0) {
+      if ($(this).data('autosize')) {
+        return
+      }
+      $(this).data('autosize', true);
+      autosize($(this));
+      show_buttons(this)
+    }
+  })
+
+  $(el_selector).off('focus').on('focus', function(event) {
+      {% if not request.user.is_authenticated %}
+      toastr.clear()
+      toastr.error('Log in to comment','', {timeOut: 2000})
+      return
+      {% endif %}
+      if ($(this).data('autosize')) {
+        return
+      }
+      $(this).data('autosize', true);
+      autosize($(this));
+      show_buttons(this)
+      options.callback_focus? options.callback_focus($(this)) : null
+  })
+
+  $(el_selector).off('keyup').on('keyup', function(event) {
+    {% if not request.user.is_authenticated %}
+    return false
+    {% endif %}
+      var t_len = encodeURI($(this).val()).length;
+      if (t_len == 0 && $(this)[0].selectionStart == 0 && $(this)[0].selectionEnd == 0) {
+        autosize.destroy($(this))
+        $(this).data('autosize', false);
+        hide_buttons(this)
+      }else{
+        if (!$(this).data('autosize')) {
+          autosize($(this));
+          $(this).data('autosize', true);
+          show_buttons(this)
+        }
+      }
+  })
+
+  $(el_selector).off('keydown').on('keydown', function(event) {
+    {% if not request.user.is_authenticated %}
+    return false
+    {% endif %}
+      var t_len = encodeURI($(this).val()).length;
+      if (t_len == 0 && $(this)[0].selectionStart == 0 && $(this)[0].selectionEnd == 0) {
+      }else{
+        if (!$(this).data('autosize')) {
+          autosize($(this));
+          $(this).data('autosize', true);
+          show_buttons(this)
+        }
+      }
+  })
+
+  {% if not request.user.is_authenticated %}
+  return
+  {% endif %}
+
+  $(el_selector).parent().find('.cancel_comment').off('click').on('click', function(e) {
+    var $this = $(this);
+    var textarea = $this.parent().find('textarea');
+    $(textarea).val('')
+    autosize.destroy($(textarea))
+    $(textarea).data('autosize', false);
+    hide_buttons(this)
+    options.callback_cancel? options.callback_cancel($(this)) : null
+  })
+
+  $(el_selector).parent().find('.comment').off('click').on('click', function(e) {
+    var $this = $(this);
+    var textarea = $this.parent().find('textarea');
+    var text = encodeURI(textarea.val())
+    if (textarea.val().trim().length == 0) {
+      return
+    }
+    if ($this.data('commented')) {
+      return
+    }
+    options.data = options.data? options.data : {}
+    $this.data('commented',true)
+    $.ajax({
+      url: xhr_url,
+      method:'POST',
+      data: {'csrfmiddlewaretoken':`{{csrf_token}}`,'text':text, ...options.data},
+      success: function (data) {
+        $this.data('commented',false)
+        textarea.data('autosize', false);
+        textarea.val('')
+        hide_buttons($this)
+        if (public) {
+          fetch_root_comments(false)
+        }
+        options.callback_comment? options.callback_comment({comment_btn:$this, data:data}) : null
+      }
+    })
+  })
+}
+
+function reply_comp(options={}) {
+  return `
+  <reply><div  class="mb-1 mt-2 reply_component" style="flex-direction: row;display: flex;">
+    <div class="user_pic">
+      <div class="avatar w-24 m-t-sm"><img class="w-24" src="{% profile_picture_64 request.user %}"></div>
+    </div>
+    <div class="public_comment ml-3" style="width:100%;">
+      <textarea autocomplete="off" placeholder="${options.placeholder?options.placeholder:'Add a public reply...'}" class="mb-2 p-2 comment_ta" required></textarea>
+      <button type="button" class="btn btn-dark float-right comment d-none"><span >Reply</span></button>
+      <button type="button" class="btn btn-transparent float-right mr-2 cancel_comment d-none"><span>Cancel</span></button>
+    </div>
+  </div></reply>
+  `
+}
+
+function public_comp(options={}) {
+  return `<comment><div class="mb-2" style="flex-direction: row;display: flex;">
+    <div class="user_pic">
+      <div class="avatar w-40 m-t-sm"><img class="w-40" src="{% profile_picture_64 request.user %}"></div>
+    </div>
+    <div class="public_comment ml-3" style="width:100%;">
+      <textarea autocomplete="off" placeholder="Add a public comment..." class="mb-2 p-2 comment_ta" required></textarea>
+      <button type="button" class="btn btn-dark float-right comment d-none"><span >${options.btn1? options.btn1 : 'Comment'}</span></button>
+      <button type="button" class="btn btn-transparent float-right mr-2 cancel_comment d-none"><span>${options.btn2? options.btn2 : 'Cancel'}</span></button>
+    </div>
+  </div></comment>`
+}
+
+const ru = {% if request.user.is_authenticated %}`{{request.user.username}}`{% else %}null{% endif %}
+
+function add_comment_box(options) {
+  var comp = $(options.component)
+  $(comp).insertAfter($(options.parent))
+  options.component = comp
+  comment_box_ta(options)
+  return comp
+}
+
+function urlify(text) {
+    return text.replace(/(https?:\/\/[^\s]+)/g, url =>{ return `<a href="${url}" class="text-primary link_color" target="_blank">${url}</a>` })
+}
+
+function view_r_toggle(options) {
+  var $this = options.element
+  var replies = $this.closest('.comment_main').find('replies')
+  var show_more_replies = $this.closest('.comment_main').find('.show_more_replies').parent()
+  var replies_wrapper = $this.closest('.comment_main').find('replies_wrapper')
+  var $rep_tog_link = $this
+  var _show = function (hide_rep_el) {
+    if (replies.children().length != 0) {
+      $rep_tog_link.show()
+    }
+    replies.show()
+    replies_wrapper.show()
+    $rep_tog_link.data('show', 1)
+    $rep_tog_link.html(hide_rep_el)
+  }
+
+  var _hide = function (view_rep_el) {
+    if (replies.children().length == 0) {
+      $rep_tog_link.hide()
+    }
+    replies.hide()
+    replies_wrapper.hide()
+    show_more_replies.hide()
+    $rep_tog_link.data('show',0)
+    $rep_tog_link.html(view_rep_el)
+  }
+  var rep_count = function () {
+    $.ajax({
+      url: `{% url 'gamesrec:get_replies_count_msg' %}`,
+      method:'POST',
+      data: {'csrfmiddlewaretoken':`{{csrf_token}}`,id:$rep_tog_link.data('id')},
+      success: function (data) {
+        var view_rep_el = `<i class="chevron-down float-left" style="margin-top: .7em;margin-right: .8em;"></i><span class="float-left">${data.show}</span>`
+        var hide_rep_el = `<i class="chevron-up float-left" style="margin-top: .7em;margin-right: .8em;"></i><span class="float-left">${data.hide}</span>`
+        if (options.show) {
+          $rep_tog_link.removeAttr('data-state')
+          $rep_tog_link.data('show',0)
+          $rep_tog_link.show()
+        }
+        if (options.hide) {
+          $rep_tog_link.removeAttr('data-state')
+          $rep_tog_link.data('show',1)
+          $rep_tog_link.hide()
+        }
+        if (options.check_show_more_replies) {
+          if (replies.children().length >= data.count) {
+            show_more_replies.hide()
+          }
+          return
+        }
+        if($rep_tog_link.attr('data-state') == 'hidden'){
+          replies.html('<div class="text-center"><i class="fas fa-lg fa-spinner fa-spin"></i></div>')
+          setTimeout(function () {
+            fetch_replies({
+              append:false,
+              root: $rep_tog_link.closest('.comment_main'),
+              id: $rep_tog_link.data('id'),
+              fetched: function () {
+                if (replies.children().length >= show_more_replies.data('count')) {
+                  show_more_replies.hide()
+                }
+              }
+            })
+          },1000)
+          $rep_tog_link.removeAttr('data-state')
+          replies.removeClass('d-none')
+          show_more_replies.removeClass('d-none')
+          show_more_replies.show()
+          show_more_replies.data('count', data.count)
+          _show(hide_rep_el)
+        }else{
+          if($rep_tog_link.data('show')){
+            _hide(view_rep_el)
+          }else{
+            if (replies.children().length < data.count) {
+              show_more_replies.removeClass('d-none')
+              show_more_replies.show()
+            }else{
+              show_more_replies.hide()
+            }
+            _show(hide_rep_el)
+          }
+        }
+      }
+    })
+  }
+  rep_count()
+}
+
+var loading;
+var end_comments;
+
+function load_on_scroll(w) {
+  if (w.scrollTop()+1 >= $('.content').height()-$(window).height()) {
+      if (loading == false) {
+        loading = true
+        fetch_root_comments(true)
+      }
+  }
+}
+
+// $(window).on('scroll',function () {
+//   load_on_scroll($(this))
+// })
+
+function rating_comment(x) {
+  var rate = $(`
+  <rate_c>
+    <button id="like_${x.id}" class="mdl-button mdl-js-button mdl-button--icon p-0 c_like rating_c ${x.user_liked? 'rated_c' : ''}" data-label="Yes"><span><i class="fas fa-thumbs-up"></i></span></button><span class="c_like_cnt font-weight-bold text-muted ml-1" style="vertical-align: middle;">${x.likes_count != 0? x.likes_count : ''}</span>
+    <button id="dislike_${x.id}" class="mdl-button mdl-js-button mdl-button--icon p-0 ml-2 c_dislike rating_c ${x.user_disliked? 'rated_c' : ''}" data-label="No"><span><i class="fas fa-thumbs-down fa-flip-horizontal"></i></span></button><span class="c_dislike_cnt font-weight-bold text-muted ml-1" style="vertical-align: middle;">${x.dislikes_count != 0? x.dislikes_count: ''}</span>
+    <div class="mdl-tooltip" data-mdl-for="like_${x.id}">
+      Like
+    </div>
+    <div class="mdl-tooltip" data-mdl-for="dislike_${x.id}">
+      Dislike
+    </div>
+  </rate_c>
+  `)
+  rate.find('.rating_c').data('id', x.id)
+  rate.find('.rating_c').each(function(index, el) {
+    $(el).data('label', $(el).attr('data-label'))
+    $(el).removeAttr('data-label')
+  });
+  rate.find('.rating_c').click(function(e) {
+    {% if not request.user.is_authenticated %}
+    return false
+    {% endif %}
+    var $this = $(this)
+    $.ajax({
+      url: `{% url 'gamesrec:comment_rate' %}`,
+      method:'POST',
+      data: {'csrfmiddlewaretoken':`{{csrf_token}}`,'id':$this.data('id'),'rate':$this.data('label')},
+      success: function (data) {
+        var other_r = $this.parent().find('.rating_c')
+        other_r.hasClass('rated_c')? other_r.removeClass('rated_c') : null
+
+        $this.parent().find('.c_like_cnt').html(data.count.likes != 0? data.count.likes : '')
+        $this.parent().find('.c_dislike_cnt').html(data.count.dislikes != 0? data.count.dislikes : '')
+
+        if(data.result == 'success'){
+          if (data.type == 'add') {
+            !$this.hasClass('rated_c')? $this.addClass('rated_c') : null
+          }else{
+            $this.hasClass('rated_c')? $this.removeClass('rated_c') : null
+          }
+          Snackbar.show({
+            pos: 'bottom-left',
+            text:`${data.msg}`,
+            showAction:false,
+            // backgroundColor:'#388e3c',
+            duration:2000
+          });
+        }
+      },
+    })
+  });
+  return rate
+}
+
+function fetch_root_comments(append) {
+  if (!append) {
+    $('.comments').html('')
+    end_comments = false
+    $('.end_comments_msg').find('msg').html('<i class="fas fa-2x fa-spinner fa-spin"></i>')
+  }
+  if (end_comments) {
+    return
+  }
+  $.ajax({
+    url: `{% url 'gamesrec:load_comments' %}`,
+    method:'POST',
+    data: {'csrfmiddlewaretoken':`{{csrf_token}}`, 'offset':$('.comments').children().length},
+    success: function (data) {
+      data.root_comments.map(function (x) {
+        var reply_btn = `<button type="button" class="mdl-button mdl-js-button p-0 mdl-js-ripple-effect color-inherit reply_btn" style="transform: scale(1, .95); font-weight:500;"><span>REPLY</span></button>`
+        reply_btn = $(reply_btn)
+        reply_btn.data('id', x.id)
+        reply_btn.on('click', function (e) {
+          var r_btn = $(this)
+          if (r_btn.data('reply_comp')) {
+            return
+          }
+          r_btn.data('reply_comp', true)
+          var rep_comp = add_comment_box({
+            component:reply_comp(),
+            parent: $(this).parent(),
+            xhr_url: `{% url 'gamesrec:reply' %}`,
+            public: false,
+            data:{id:r_btn.data('id')},
+            callback_cancel: function (cancel_btn) {
+              r_btn.data('reply_comp', false)
+              cancel_btn.closest('.reply_component').remove()
+            },
+            callback_comment:function (c_opt) {
+              r_btn.data('reply_comp', false)
+              c_opt.comment_btn.closest('reply').remove()
+              r_btn.closest('.comment_main').find('replies').html('<div class="text-center"><i class="fas fa-lg fa-spinner fa-spin"></i></div>')
+              setTimeout(function () {
+                fetch_replies({
+                  append:false,
+                  root: r_btn.closest('.comment_main'),
+                  id: r_btn.data('id'),
+                  fetched: function () {
+                    view_r_toggle({element:r_btn.closest('.comment_main').find('.view_r'), check_show_more_replies:1})
+                  }
+                })
+              },1000)
+              view_r_toggle({element:r_btn.closest('.comment_main').find('.view_r'), show:1})
+              // r_btn.closest('.comment_main').find('.view_r').show()
+              // var txt = $(c_opt.data.data).find('textarea')
+              // comment_wrapper.find('.c_text').html(txt.html())
+              // edit_opt.closest('.comment_p').data('text', txt)
+              // comment_wrapper.show()
+              // if (comment_wrapper.find('.c_text_read_more').length) {
+              //   comment_wrapper.find('.c_text_read_more').remove()
+              //   comment_wrapper.find('.c_text').css('height','')
+              // }
+              // if (comment_wrapper.find('.c_text').height() > 84) {
+              //   comment_wrapper.find('.c_text').readMore({readMoreHeight:88, readMoreLinkClass:'c_text_read_more', readMoreText:'Read more', readLessText:'Show less'})
+              // }
+              // menu.closest('.c_menu').find('button').css('visibility','visible')
+              // menu.show()
+            }
+          })
+          rep_comp.find('textarea').focus()
+        })
+
+        var view_r = $(`<a class="text-primary link_color font-weight-bold view_r" data-state="hidden"><i class="chevron-down float-left" style="margin-top: .7em;margin-right: .8em;"></i><span class="float-left">View ${x.has_replies == 1? `reply from ${x.first_reply}`: `${x.has_replies} replies`}</span></a>`)
+        view_r.data('id', x.id)
+        view_r.on('click',function () {
+          view_r_toggle({element:$(this)})
+        })
+
+        var rate = rating_comment(x)
+        var ta = $(x.text).find('textarea')
+        var c = `<div class="comment_p mb-3 root_comment" style="flex-direction: row;display: flex;">
+          <div class="user_pic">
+            <a href="${x.profile}"><div class="avatar w-40 m-t-sm"><img class="w-40" src="${x.picture}"></div></a>
+          </div>
+          <div class="comment_main mt-2" style="padding: 0;overflow: hidden;width: 100%;">
+            <div class="col-12 comment_wrapper">
+              <a href="${x.profile}" class="default"><span class="font-weight-bold">${x.username}</span></a><span class="ml-2 text-muted">${x.timestamp}</span>
+
+              <div class="c_text" style="display: -webkit-box;overflow: hidden;max-height: none;-webkit-box-orient: vertical; white-space:pre-wrap; overflow-wrap: break-word;">${urlify(ta.html())}</div>
+              <div class="text-muted c_actions mt-2">
+              </div>
+
+            </div>
+            <replies_container style="display:block;">
+              <div class="col-12">
+                <div class="r_actions d-flex">
+                </div>
+              </div>
+              <replies_wrapper style="display:none;">
+                <replies class="pl-3 pt-3" style="display:block"></replies>
+                <show_m_r class="d-none">
+                  <button type="button" class="ml-3 mt-3 mdl-button mdl-js-button mdl-js-ripple-effect show_more_replies text-primary" style="text-transform: inherit;"><i class="fal fa-level-up fa-rotate-90 mr-3"></i>Show more replies</button><span class="ml-2 font-weight-bold" style="vertical-align: middle;"><msg class="mt-3" style="display:inline-block"></msg></span>
+                </show_m_r>
+                <new_replies></new_replies>
+              </replies_wrapper>
+            </replies_container>
+          </div>
+          <commentMenu></commentMenu>
+        </div>`
+        c = $(c)
+        c.find('.comment_wrapper, commentMenu, .user_pic').on('mouseover',function () {
+          var p = $(this).closest('.root_comment').children().last()
+          if (!p.find('.c_menu').data('hidden')) {
+            p.find('.c_menu').find('button').css('visibility', 'visible')
+          }
+          p.find('.c_menu').removeClass('invisible')
+          p.find('.c_menu').addClass('visible')
+        })
+
+        c.find('.comment_wrapper, commentMenu, .user_pic').on('mouseout',function () {
+          var p = $(this).closest('.root_comment').children().last()
+          if (!p.find('.c_menu').data('hidden')) {
+            p.find('.c_menu').find('button').css('visibility', 'hidden')
+          }
+          p.find('.c_menu').removeClass('visible')
+          p.find('.c_menu').addClass('invisible')
+        })
+
+        c.data('text', ta)
+        $('.comments').append(c)
+        if (c.find('.c_text').height() > 84) {
+          c.find('.c_text').readMore({readMoreHeight:88, readMoreLinkClass:'c_text_read_more', readMoreText:'Read more', readLessText:'Show less'})
+        }
+        c.find('.c_actions').append(rate)
+        componentHandler.upgradeElement(c.find('rate_c').find('.mdl-tooltip')[0])
+        componentHandler.upgradeElement(c.find('rate_c').find('.mdl-tooltip')[1])
+        c.find('.c_actions').append(reply_btn)
+        if (x.has_replies == 0) {
+          view_r.hide()
+        }
+        c.find('.r_actions').append(view_r)
+        c.find('.show_more_replies').data('id', x.id)
+        c.find('.show_more_replies').off('click').on('click',function () {
+          var show_m = $(this)
+          fetch_replies({
+            append:true,
+            root: $(this).closest('.comment_main'),
+            id: $(this).data('id'),
+            fetched: function (d) {
+              if (d.root_comments.length == 0) {
+                // show_m.parent().find('msg').html('No more replies')
+                // setTimeout(function () {
+                //   show_m.parent().find('msg').html('')
+                // },1000)
+                show_m.hide()
+              }
+            }
+          })
+        })
+        var m = `<div class="float-right c_menu invisible">
+          <button id="c_menu_${$('.comments').children().length}" class="mdl-button mdl-js-button mdl-button--icon"><i class="material-icons">more_vert</i></button>
+          <ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu mdl-js-ripple-effect p-0" for="c_menu_${$('.comments').children().length}" style="    position: relative;
+    top: 0;
+    right: 0;">
+            <li class="mdl-menu__item edit_c">Edit</li>
+            <li class="mdl-menu__item delete_c">Delete</li>
+          </ul>
+        </div>`
+        m = $(m)
+        if (ru == x.username) {
+          c.find('commentMenu').append(m)
+
+          m.data('id', x.id)
+
+          m.find('.edit_c').off('click').on('click',function () {
+            var edit_opt = $(this)
+            var menu = $(this).parent()
+            menu.hide()
+            menu.closest('.c_menu').find('button').css('visibility','hidden')
+            menu.closest('.c_menu').data('hidden',true)
+            var comment_wrapper = $($(this).closest('.comment_p').find('.comment_wrapper')[0]);
+            // var replies_container = $(this).closest('.comment_p').find('replies_container')
+            // replies_container.hide()
+            comment_wrapper.hide()
+            var comp = $(public_comp({btn1:'Save'}))
+            comp.find('.user_pic').remove()
+            var pk = $(this).closest('.c_menu').data('id')
+            var p_c = add_comment_box({
+              component:comp,
+              parent: comment_wrapper,
+              xhr_url: `{% url 'gamesrec:update_comment' %}`,
+              data:{id:pk,action:'text_update'},
+              public: false,
+              callback_cancel: function (cancel_btn) {
+                cancel_btn.closest('comment').remove()
+                comment_wrapper.show()
+                menu.closest('.c_menu').find('button').css('visibility','visible')
+                menu.closest('.c_menu').data('hidden',false)
+                menu.show()
+                // replies_container.show()
+              },
+              callback_comment:function (c_opt) {
+                c_opt.comment_btn.closest('comment').remove()
+                var txt = $(c_opt.data.data).find('textarea')
+                comment_wrapper.find('.c_text').html(urlify(txt.html()))
+                edit_opt.closest('.comment_p').data('text', txt)
+                comment_wrapper.show()
+                if (comment_wrapper.find('.c_text_read_more').length) {
+                  comment_wrapper.find('.c_text_read_more').remove()
+                  comment_wrapper.find('.c_text').css('height','')
+                }
+                if (comment_wrapper.find('.c_text').height() > 84) {
+                  comment_wrapper.find('.c_text').readMore({readMoreHeight:88, readMoreLinkClass:'c_text_read_more', readMoreText:'Read more', readLessText:'Show less'})
+                }
+                menu.closest('.c_menu').find('button').css('visibility','visible')
+                menu.closest('.c_menu').data('hidden',false)
+                menu.show()
+                // replies_container.show()
+              }
+            })
+            // p_c.find('textarea').prop('disabled', true);
+            // p_c.find('textarea').val('Loading...')
+            // setTimeout(function () {
+            //   $.ajax({
+            //     url: `{% url 'gamesrec:get_comment_txtarea' %}`,
+            //     method:'POST',
+            //     data: {'csrfmiddlewaretoken':`{{csrf_token}}`,'id':x.id},
+            //     success: function (data) {
+            //       p_c.find('textarea').prop('disabled', false);
+            //       p_c.find('textarea').val($(data.data).find('textarea').val())
+            //       p_c.find('textarea').focus()
+            //     }
+            //   })
+            // }, 500)
+            p_c.find('textarea').val($(this).closest('.comment_p').data('text').val())
+            p_c.find('textarea').focus()
+          })
+
+          m.find('.delete_c').off('click').on('click',function () {
+            var del_opt = $(this)
+            var pk = $(this).closest('.c_menu').data('id')
+            $.ajax({
+              url: `{% url 'gamesrec:update_comment' %}`,
+              method:'POST',
+              data: {'csrfmiddlewaretoken':`{{csrf_token}}`,id:pk,action:'delete', type:'comment'},
+              success: function (data) {
+                if (data.result == 'delete_success') {
+                  if (del_opt.closest('.root_comment').find('replies').children().length-1 == 0) {
+                    // del_opt.closest('.root_comment').find('.view_r').hide()
+                    view_r_toggle({element:del_opt.closest('.root_comment').find('.view_r'), hide:1})
+                  }
+                  del_opt.closest('.comment_p').remove()
+                }
+                Snackbar.show({
+                  pos: 'bottom-left',
+                  text:`${data.msg}`,
+                  showAction:false,
+                  // backgroundColor:'#388e3c',
+                  duration:2000
+                });
+              }
+            })
+          })
+        }
+        componentHandler.upgradeElement(m.find('button')[0]);
+        componentHandler.upgradeElement(m.find('ul')[0]);
+      })
+      loading = false
+      if (data.root_comments.length == 0) {
+        $('.end_comments_msg').find('msg').html('No more comments')
+        end_comments = true
+      }
+    }
+  })
+}
+
+function fetch_replies(options) {
+  var append = options.append
+  if (!append) {
+    options.root.find('replies').html('')
+  }
+  $.ajax({
+    url: `{% url 'gamesrec:load_replies' %}`,
+    method:'POST',
+    data: {'csrfmiddlewaretoken':`{{csrf_token}}`, 'offset':options.root.find('replies').children().length, 'id':options.id},
+    success: function (data) {
+      data.root_comments.map(function (x) {
+        add_reply_comp(x, options)
+      })
+      options.fetched? options.fetched(data) : null
+    }
+  })
+}
+
+function add_reply_comp(x, options) {
+  var reply_btn = `<button type="button" class="mdl-button mdl-js-button p-0 mdl-js-ripple-effect color-inherit reply_btn" style="transform: scale(1, .95); font-weight:500;"><span>REPLY</span></button>`
+  reply_btn = $(reply_btn)
+  reply_btn.data('id', x.id)
+  reply_btn.on('click', function (e) {
+    var r_btn = $(this)
+    if (r_btn.data('reply_comp')) {
+      return
+    }
+    r_btn.data('reply_comp', true)
+    var rep_comp = add_comment_box({
+      component:reply_comp({placeholder:`Reply to @${x.username}...`}),
+      parent: $(this).parent(),
+      xhr_url: `{% url 'gamesrec:reply' %}`,
+      public: false,
+      data:{id:options.id, mention_id:r_btn.data('id')},
+      callback_cancel: function (cancel_btn) {
+        r_btn.data('reply_comp', false)
+        cancel_btn.closest('.reply_component').remove()
+      },
+      callback_comment:function (c_opt) {
+        r_btn.data('reply_comp', false)
+        view_r_toggle({element:c_opt.comment_btn.closest('.root_comment').find('.view_r'), show:1})
+        options.root.find('replies').html('<div class="text-center"><i class="fas fa-lg fa-spinner fa-spin"></i></div>')
+        setTimeout(function () {
+          fetch_replies({
+            append:false,
+            root: options.root,
+            id: options.id,
+            fetched: function () {
+              view_r_toggle({element:options.root.find('.view_r'), check_show_more_replies:1})
+            }
+          })
+        },1000)
+        c_opt.comment_btn.closest('reply').remove()
+
+      }
+    })
+    rep_comp.find('textarea').focus()
+  })
+  var rate = rating_comment(x)
+  var ta = $(x.text).find('textarea')
+  var c = `<div class="comment_p mb-3 reply_comment" style="flex-direction: row;display: flex;">
+    <div class="user_pic">
+      <a href="${x.profile}"><div class="avatar w-24 m-t-sm"><img class="w-24" src="${x.picture}"></div></a>
+    </div>
+    <div class="comment_main mt-2" style="padding: 0;overflow: hidden;width: 100%;">
+      <div class="col-12 comment_wrapper">
+        <a href="${x.profile}" class="default"><span class="font-weight-bold">${x.username}</span></a><span class="ml-2 text-muted">${x.timestamp}</span>
+
+        <div class="c_text" style="display: -webkit-box;overflow: hidden;max-height: none;-webkit-box-orient: vertical; white-space:pre-wrap; overflow-wrap: break-word;">${x.mention? x.mention : ''}${urlify(ta.html())}</div>
+        <div class="text-muted c_actions mt-2">
+        </div>
+      </div>
+    </div>
+    <commentMenu></commentMenu>
+  </div>`
+  c = $(c)
+
+  c.find('.comment_main, commentMenu, .user_pic').on('mouseover',function () {
+    var p = $(this).closest('.reply_comment').children().last()
+    if (!p.find('.c_menu').data('hidden')) {
+      p.find('.c_menu').find('button').css('visibility', 'visible')
+    }
+    p.find('.c_menu').removeClass('invisible')
+    p.find('.c_menu').addClass('visible')
+  })
+
+  c.find('.comment_main, commentMenu, .user_pic').on('mouseout',function () {
+    var p = $(this).closest('.reply_comment').children().last()
+    if (!p.find('.c_menu').data('hidden')) {
+      p.find('.c_menu').find('button').css('visibility', 'hidden')
+    }
+    p.find('.c_menu').removeClass('visible')
+    p.find('.c_menu').addClass('invisible')
+  })
+
+  c.data('text', ta)
+  c.data('mention', x.mention?x.mention:'')
+  options.root.find('replies').append(c)
+  if (c.find('.c_text').height() > 84) {
+    c.find('.c_text').readMore({readMoreHeight:88, readMoreLinkClass:'c_text_read_more', readMoreText:'Read more', readLessText:'Show less'})
+  }
+  c.find('.c_actions').append(rate)
+  componentHandler.upgradeElement(c.find('rate_c').find('.mdl-tooltip')[0])
+  componentHandler.upgradeElement(c.find('rate_c').find('.mdl-tooltip')[1])
+  c.find('.c_actions').append(reply_btn)
+  var m = `<div class="float-right c_menu invisible">
+    <button id="c_${options.id}_menu_${options.root.find('replies').children().length}" class="mdl-button mdl-js-button mdl-button--icon"><i class="material-icons">more_vert</i></button>
+    <ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu mdl-js-ripple-effect p-0" for="c_${options.id}_menu_${options.root.find('replies').children().length}" style="    position: relative;
+top: 0;
+right: 0;">
+      <li class="mdl-menu__item edit_c">Edit</li>
+      <li class="mdl-menu__item delete_c">Delete</li>
+    </ul>
+  </div>`
+  m = $(m)
+  if (ru == x.username) {
+    c.find('commentMenu').append(m)
+
+    m.data('id', x.id)
+
+    m.find('.edit_c').off('click').on('click',function () {
+      var edit_opt = $(this)
+      var menu = $(this).parent()
+      menu.hide()
+      menu.closest('.c_menu').find('button').css('visibility','hidden')
+      menu.closest('.c_menu').data('hidden',true)
+      var comment_wrapper = $(this).closest('.comment_p').find('.comment_wrapper');
+      comment_wrapper.hide()
+      var comp = $(public_comp({btn1:'Save'}))
+      comp.find('.user_pic').remove()
+      var pk = $(this).closest('.c_menu').data('id')
+      var p_c = add_comment_box({
+        component:comp,
+        parent: comment_wrapper,
+        xhr_url: `{% url 'gamesrec:update_comment' %}`,
+        data:{id:pk,action:'text_update'},
+        public: false,
+        callback_cancel: function (cancel_btn) {
+          cancel_btn.closest('comment').remove()
+          comment_wrapper.show()
+          menu.closest('.c_menu').find('button').css('visibility','visible')
+          menu.closest('.c_menu').data('hidden',false)
+          menu.show()
+        },
+        callback_comment:function (c_opt) {
+          c_opt.comment_btn.closest('comment').remove()
+          var txt = $(c_opt.data.data).find('textarea')
+          comment_wrapper.find('.c_text').html(`${edit_opt.closest('.comment_p').data('mention')}${urlify(txt.html())}`)
+          edit_opt.closest('.comment_p').data('text', txt)
+          comment_wrapper.show()
+          if (comment_wrapper.find('.c_text_read_more').length) {
+            comment_wrapper.find('.c_text_read_more').remove()
+            comment_wrapper.find('.c_text').css('height','')
+          }
+          if (comment_wrapper.find('.c_text').height() > 84) {
+            comment_wrapper.find('.c_text').readMore({readMoreHeight:88, readMoreLinkClass:'c_text_read_more', readMoreText:'Read more', readLessText:'Show less'})
+          }
+          menu.closest('.c_menu').find('button').css('visibility','visible')
+          menu.closest('.c_menu').data('hidden',false)
+          menu.show()
+        }
+      })
+      p_c.find('textarea').val(`${$(this).closest('.comment_p').data('text').val()}`)
+      p_c.find('textarea').focus()
+    })
+
+    m.find('.delete_c').off('click').on('click',function () {
+      var del_opt = $(this)
+      var pk = $(this).closest('.c_menu').data('id')
+      $.ajax({
+        url: `{% url 'gamesrec:update_comment' %}`,
+        method:'POST',
+        data: {'csrfmiddlewaretoken':`{{csrf_token}}`,id:pk,action:'delete', type:'reply'},
+        success: function (data) {
+          if (data.result == 'delete_success') {
+            if (del_opt.closest('.root_comment').find('replies').children().length-1 == 0) {
+              // del_opt.closest('.root_comment').find('.view_r').hide()
+              view_r_toggle({element:del_opt.closest('.root_comment').find('.view_r'), hide:1})
+            }
+            del_opt.closest('.comment_p').remove()
+          }
+          Snackbar.show({
+            pos: 'bottom-left',
+            text:`${data.msg}`,
+            showAction:false,
+            duration:2000
+          });
+        }
+      })
+    })
+  }
+  componentHandler.upgradeElement(m.find('button')[0]);
+  componentHandler.upgradeElement(m.find('ul')[0]);
+}
+
+function decodeHtml(html) {
+    var txt = document.createElement("textarea");
+    txt.innerHTML = html;
+    return txt.value;
+}
+
+$(document).ready(function() {
+
+  var p_c = add_comment_box({
+    component:public_comp(),
+    parent: $('.public_comment_parent'),
+    xhr_url: `{% url 'gamesrec:comment' %}`,
+    public: true
+  })
+
+  fetch_root_comments(true)
+
+  // $('.show_more').on('click',function () {
+  //   fetch_root_comments(true)
+  // })
+
+  var ld = setInterval(function () {
+    load_on_scroll($(window))
+  },1)
+
+
+})
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="content pb-5 rounded">
+
+<div class="box p-3">
+  <ul>
+    {% recursetree co %}
+        <li>
+            {{ node.user.username }} : {{node.text}}
+            {% if not node.is_leaf_node %}
+                <ul class="children">
+                    {{ children }}
+                </ul>
+            {% endif %}
+        </li>
+    {% endrecursetree %}
+</ul>
+
+<div class="public_comment_parent">
+</div>
+
+<div class="mt-5 box comments">
+</div>
+
+<div class="text-center end_comments_msg">
+  <msg><i class="fas fa-2x fa-spinner fa-spin"></i></msg>
+  <!-- <button type="button" class="mdl-button mdl-js-button mdl-js-ripple-effect color-inherit show_more">Show more</button> -->
+</div>
+
+</div>
+
+</div>
+
+{% endblock %}
+
+</html>

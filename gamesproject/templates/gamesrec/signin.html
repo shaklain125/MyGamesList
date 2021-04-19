@@ -1,0 +1,108 @@
+{% extends "gamesrec/base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+<html>
+
+{% block title %}
+
+  Sign in
+
+{% endblock %}
+
+{% block script %}
+<script>
+$(document).ready(function() {
+  Load_page_async(function () {
+    $('form#loginfrm').submit(function(e) {
+      e.preventDefault();
+      var formdata = $('form#loginfrm').serializeArray()
+      $.ajax({
+        url: "{% url 'gamesrec:login' %}",
+        method:'POST',
+        data: formdata,
+        success: function (data) {
+          clearToasts()
+          if(data.valid)
+          {
+            // toastr.success(data.msg);
+            {% if request.GET.next %}
+            window.location.href = `{{request.GET.next}}`
+            {% else %}
+            window.location.href = data.redirect
+            {% endif %}
+          }else {
+            var errormsg = new Toast('error','tr',data.msg)
+            errormsg.show()
+          }
+        },
+      })
+    });
+  })
+
+});
+</script>
+{% endblock %}
+
+{% block content %}
+
+<div class="container content rounded p-2 p-xl-4 p-lg-4 p-md-4 p-sm-3 p-xs-2">
+
+  <div class="row p-2 p-xl-4 p-lg-4 p-md-4 p-sm-3 p-xs-2">
+    <div class="col-lg-6 col-md-6">
+      <div>
+        <div class="mt-3">
+          <h5 class="font-weight-bold mb-3">Sign in</h5>
+          <form id="loginfrm">
+            {% csrf_token %}
+            {{form.email | as_crispy_field}}
+            {{form.password | as_crispy_field}}
+            <div class="form-check mb-3 pl-0">
+              {{form.remember_me | as_crispy_field}}
+            </div>
+            <div class="m-b-xs">
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <button class="text-uppercase btn text-white themebgclr  btn-md btn-block btn-rounded m-0" type="submit" name="">
+                    Sign in
+                  </button>
+                </div>
+                <div class="col-md-6 text-center align-middle mt-2 mb-3">
+                  <a href="{% url 'gamesrec:password_reset' %}">Forgot password?</a>
+                </div>
+              </div>
+            </div>
+
+          </form>
+        </div>
+      </div>
+      <div style="position: relative;margin: 40px 0;border-bottom: 1px solid rgba(120, 130, 140, .13);display: block;">
+        <div style="position: relative;margin: 40px 0;border-bottom: 1px solid rgba(120, 130, 140, .13);display: block;">
+          <span style="position: absolute;left: 45%;top: -19px;border-radius: 500px;font-size: 14px;padding: 0;width: 2.25rem;height: 2.25rem;line-height: 2.25rem;overflow: hidden;font-weight: 500;
+      outline: 0!important;text-align: center;font-weight:normal;">
+            OR
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6 col-md-6">
+      <div class="row">
+        <div class="col-lg-offset-1 col-lg-10">
+          <h5 class="m-b">Don't have an account?</h5>
+          <p><b>Sign up for MyGamesList. It's free and only takes about 30 seconds!</b></p>
+          <p>While you don't have to Sign up in order to view the information on Games, making an account has a lot of benefits.</p>
+          <ul class="features">
+            <li>Make your own Games List</li>
+            <li>Create game reviews</li>
+            <li>Contribute to the ever growing database</li>
+            <li>Much more ~</li>
+          </ul>
+          <a href="{% url 'gamesrec:register' %}" class="btn btn-default">Sign up</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+</html>

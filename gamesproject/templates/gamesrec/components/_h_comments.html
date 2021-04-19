@@ -1,0 +1,470 @@
+{% load static %}
+{% load custom_tags %}
+{% load mptt_tags %}
+{% load crispy_forms_tags %}
+{% load crispy_forms_field %}
+
+<style>
+.comment_ta {
+  min-height: 33px;
+  height: 33px;
+  width:100%;
+  overflow:hidden !important;
+  resize: none !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  background-color: transparent !important;
+  padding-left: 1px !important;
+  box-shadow: none !important;
+}
+
+.comment_ta:focus {
+  width:100%;
+  overflow:hidden !important;
+  resize: none !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  background-color: transparent !important;
+  padding-left: 1px !important;
+}
+
+.user_icon {
+  background-color: white !important;
+  background-image: url("data:image/svg+xml,%3Csvg aria-hidden='true' focusable='false' data-prefix='fas' data-icon='user' class='svg-inline--fa fa-user fa-w-14' role='img' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='currentColor' d='M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48v-41.6c0-74.2-60.2-134.4-134.4-134.4z'%3E%3C/path%3E%3C/svg%3E");
+  line-height: 0;
+  -webkit-transition: opacity .3s;
+  transition: opacity .3s;
+  background-repeat: no-repeat;
+  background-position: 50%;
+  background-size: contain;
+  display: inline-block;
+  background-size: 30px;
+  background-position-y: 6px;
+}
+
+
+.c_text_read_more {
+    color:#6c757d!important;
+    letter-spacing: 0.5pt;
+    font-size: inherit;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.c_text_read_more:hover{
+  text-decoration: underline;
+}
+
+.rating_c{
+  min-width: 24px !important;
+  width: 24px;
+  height: 24px;
+  font-size: inherit;
+  overflow: inherit;
+  color:inherit;
+  background-color:transparent;
+}
+
+.rating_c i {
+  font-size: inherit;
+
+  position: absolute;
+  left: 5px;
+}
+
+.c_like i {
+  top: 5px;
+  left: 5px;
+}
+
+.c_dislike i{
+  top: 7px;
+  left: 5px;
+}
+
+.rating_c:hover{
+  color: var(--rating-hover) !important;
+  /* background-color:transparent; */
+}
+
+.rated_c{
+  color:var(--rating-hover);
+}
+
+.divider {
+    background-color: rgba(120,130,140,.13) !important;
+    border-top: unset !important;
+}
+
+.divider {
+    height: 1px;
+    margin: .5rem 0;
+    overflow: hidden;
+}
+
+/* .comment_p:hover{
+  background-color:var(--bg-1)
+} */
+
+</style>
+
+<script>
+
+function comment_box_ta(options){
+
+  var el_selector = options.component.find('textarea')
+
+  var xhr_url = options.xhr_url
+
+  var public = options.public
+
+  var hide_buttons = function (el) {
+    $(el).parent().find('.comment').hide()
+    $(el).parent().find('.cancel_comment').hide()
+  }
+
+  var show_buttons = function (el) {
+    $(el).parent().find('.comment').show()
+    $(el).parent().find('.cancel_comment').show()
+  }
+
+  hide_buttons(el_selector)
+
+  $(el_selector).parent().find('.comment').removeClass('d-none')
+  $(el_selector).parent().find('.cancel_comment').removeClass('d-none')
+
+  $(el_selector).bind('input propertychange',function () {
+    {% if not request.user.is_authenticated %}
+    toastr.clear()
+    toastr.error('Log in to comment','', {timeOut: 2000})
+    return
+    {% endif %}
+    if ($(this).val().length != 0) {
+      if ($(this).data('autosize')) {
+        return
+      }
+      $(this).data('autosize', true);
+      autosize($(this));
+      show_buttons(this)
+    }
+  })
+
+  $(el_selector).off('focus').on('focus', function(event) {
+      {% if not request.user.is_authenticated %}
+      toastr.clear()
+      toastr.error('Log in to comment','', {timeOut: 2000})
+      return
+      {% endif %}
+      if ($(this).data('autosize')) {
+        return
+      }
+      $(this).data('autosize', true);
+      autosize($(this));
+      show_buttons(this)
+      options.callback_focus? options.callback_focus($(this)) : null
+  })
+
+  $(el_selector).off('keyup').on('keyup', function(event) {
+    {% if not request.user.is_authenticated %}
+    return false
+    {% endif %}
+      var t_len = encodeURI($(this).val()).length;
+      if (t_len == 0 && $(this)[0].selectionStart == 0 && $(this)[0].selectionEnd == 0) {
+        autosize.destroy($(this))
+        $(this).data('autosize', false);
+        hide_buttons(this)
+      }else{
+        if (!$(this).data('autosize')) {
+          autosize($(this));
+          $(this).data('autosize', true);
+          show_buttons(this)
+        }
+      }
+  })
+
+  $(el_selector).off('keydown').on('keydown', function(event) {
+    {% if not request.user.is_authenticated %}
+    return false
+    {% endif %}
+      var t_len = encodeURI($(this).val()).length;
+      if (t_len == 0 && $(this)[0].selectionStart == 0 && $(this)[0].selectionEnd == 0) {
+      }else{
+        if (!$(this).data('autosize')) {
+          autosize($(this));
+          $(this).data('autosize', true);
+          show_buttons(this)
+        }
+      }
+  })
+
+  {% if not request.user.is_authenticated %}
+  return
+  {% endif %}
+
+  $(el_selector).parent().find('.cancel_comment').off('click').on('click', function(e) {
+    var $this = $(this);
+    var textarea = $this.parent().find('textarea');
+    $(textarea).val('')
+    autosize.destroy($(textarea))
+    $(textarea).data('autosize', false);
+    hide_buttons(this)
+    options.callback_cancel? options.callback_cancel($(this)) : null
+  })
+
+  $(el_selector).parent().find('.comment').off('click').on('click', function(e) {
+    var $this = $(this);
+    var textarea = $this.parent().find('textarea');
+    var text = encodeURI(textarea.val())
+    if (textarea.val().trim().length == 0) {
+      return
+    }
+    if ($this.data('commented')) {
+      return
+    }
+    options.data = options.data? options.data : {}
+    $this.data('commented',true)
+    $.ajax({
+      url: xhr_url,
+      method:'POST',
+      data: {'csrfmiddlewaretoken':`{{csrf_token}}`, 'type_name':`GameComment`, 'text':text, ...options.data},
+      success: function (data) {
+        $this.data('commented',false)
+        textarea.data('autosize', false);
+        textarea.val('')
+        hide_buttons($this)
+        if (public) {
+          fetch_root_comments(false)
+        }
+        // update_comments_count()
+        options.callback_comment? options.callback_comment({comment_btn:$this, data:data}) : null
+      }
+    })
+  })
+}
+
+function public_comp(options={}) {
+  return `<comment><div class="mb-2" style="flex-direction: row;display: flex;">
+    <div class="user_pic">
+      <div class="avatar w-40 m-t-sm"><img class="w-40" src="{% profile_picture_64 request.user %}"></div>
+    </div>
+    <div class="public_comment ml-3" style="width:100%;">
+      <textarea autocomplete="off" placeholder="Edit comment..." class="mb-2 p-2 comment_ta" required></textarea>
+      <button type="button" class="btn btn-dark float-right comment d-none"><span >${options.btn1? options.btn1 : 'Comment'}</span></button>
+      <button type="button" class="btn btn-transparent float-right mr-2 cancel_comment d-none"><span>${options.btn2? options.btn2 : 'Cancel'}</span></button>
+    </div>
+  </div></comment>`
+}
+
+const ru = {% if request.user.is_authenticated %}`{{request.user.username}}`{% else %}null{% endif %}
+
+function add_comment_box(options) {
+  var comp = $(options.component)
+  $(comp).insertAfter($(options.parent))
+  options.component = comp
+  comment_box_ta(options)
+  return comp
+}
+
+function urlify(text) {
+    return text.replace(/(https?:\/\/[^\s]+)/g, url =>{ return `<a href="${url}" class="text-primary link_color" target="_blank">${url}</a>` })
+}
+
+var loading;
+var end_comments;
+
+function load_on_scroll(w) {
+  if (w.scrollTop()+1 >= $('.comments_component_wrapper').height()-$(window).height()) {
+      if (loading == false) {
+        loading = true
+        fetch_root_comments(true)
+      }
+  }
+}
+
+function fetch_root_comments(append) {
+  if (!append) {
+    $('.comments').html('')
+    end_comments = false
+    $('.end_comments_msg').find('msg').html('<i class="fas fa-2x fa-spinner fa-spin"></i>')
+  }
+  if (end_comments) {
+    return
+  }
+  $.ajax({
+    url: `{% url 'gamesrec:load_history' %}`,
+    method:'POST',
+    data: {'csrfmiddlewaretoken':`{{csrf_token}}`, 'offset':$('.comments').children().length, 'history_type':'comment'},
+    success: function (data) {
+      data.root_comments.map(function (x) {
+        var ta = $(x.text).find('textarea')
+        var c = `<div class="comment_p pb-3 pt-1 root_comment" style="flex-direction: row;display: flex;">
+          <div class="comment_main mt-2" style="padding: 0;overflow: hidden;width: 100%;">
+            <div class="col-12 comment_wrapper">
+              <a href="${x.game_url}" class="default"><span><span><span class="font-weight-bold">Commented</span> on <span class="font-weight-bold">${x.game_title}</span></span></span></a>
+
+              <div class="c_text" style="display: -webkit-box;overflow: hidden;max-height: none;-webkit-box-orient: vertical; white-space:pre-wrap; overflow-wrap: break-word;">${urlify(ta.html())}</div>
+              <div>
+                <span class="text-muted">${x.timestamp}</span>
+              </div>
+            </div>
+          </div>
+          <commentMenu></commentMenu>
+        </div>
+        <div class="divider"></div>
+        `
+        c = $(c)
+        c.find('.comment_wrapper, commentMenu, .user_pic').on('mouseover',function () {
+          var p = $(this).closest('.root_comment').children().last()
+          if (!p.find('.c_menu').data('hidden')) {
+            p.find('.c_menu').find('button').css('visibility', 'visible')
+          }
+          p.find('.c_menu').removeClass('invisible')
+          p.find('.c_menu').addClass('visible')
+        })
+
+        c.find('.comment_wrapper, commentMenu, .user_pic').on('mouseout',function () {
+          var p = $(this).closest('.root_comment').children().last()
+          if (!p.find('.c_menu').data('hidden')) {
+            p.find('.c_menu').find('button').css('visibility', 'hidden')
+          }
+          p.find('.c_menu').removeClass('visible')
+          p.find('.c_menu').addClass('invisible')
+        })
+
+        c.data('text', ta)
+        $('.comments').append(c)
+        if (c.find('.c_text').height() > 84) {
+          c.find('.c_text').readMore({readMoreHeight:88, readMoreLinkClass:'c_text_read_more', readMoreText:'Read more', readLessText:'Show less'})
+        }
+        var m = `<div class="float-right c_menu invisible">
+          <button id="c_menu_${$('.comments').children().length}" class="mdl-button mdl-js-button mdl-button--icon"><i class="material-icons">more_vert</i></button>
+          <ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu mdl-js-ripple-effect p-0" for="c_menu_${$('.comments').children().length}" style="    position: relative;
+    top: 0;
+    right: 0;">
+            <li class="mdl-menu__item edit_c">Edit</li>
+            <li class="mdl-menu__item delete_c">Delete</li>
+          </ul>
+        </div>`
+        m = $(m)
+        if (ru == x.username) {
+          c.find('commentMenu').append(m)
+
+          m.data('id', x.id)
+          m.data('game_id', x.game_id)
+
+          m.find('.edit_c').off('click').on('click',function () {
+            var edit_opt = $(this)
+            var menu = $(this).parent()
+            menu.hide()
+            menu.closest('.c_menu').find('button').css('visibility','hidden')
+            menu.closest('.c_menu').data('hidden',true)
+            var comment_wrapper = $($(this).closest('.comment_p').find('.comment_wrapper')[0]);
+            comment_wrapper.hide()
+            var comp = $(public_comp({btn1:'Save'}))
+            comp.find('.user_pic').remove()
+            var pk = $(this).closest('.c_menu').data('id')
+            var game_pk = $(this).closest('.c_menu').data('game_id')
+            var p_c = add_comment_box({
+              component:comp,
+              parent: comment_wrapper,
+              xhr_url: `{% url 'gamesrec:update_comment' %}`,
+              data:{id:pk,action:'text_update', t_id:game_pk},
+              public: false,
+              callback_cancel: function (cancel_btn) {
+                cancel_btn.closest('comment').remove()
+                comment_wrapper.show()
+                menu.closest('.c_menu').find('button').css('visibility','visible')
+                menu.closest('.c_menu').data('hidden',false)
+                menu.show()
+              },
+              callback_comment:function (c_opt) {
+                c_opt.comment_btn.closest('comment').remove()
+                var txt = $(c_opt.data.data).find('textarea')
+                comment_wrapper.find('.c_text').html(urlify(txt.html()))
+                edit_opt.closest('.comment_p').data('text', txt)
+                comment_wrapper.show()
+                if (comment_wrapper.find('.c_text_read_more').length) {
+                  comment_wrapper.find('.c_text_read_more').remove()
+                  comment_wrapper.find('.c_text').css('height','')
+                }
+                if (comment_wrapper.find('.c_text').height() > 84) {
+                  comment_wrapper.find('.c_text').readMore({readMoreHeight:88, readMoreLinkClass:'c_text_read_more', readMoreText:'Read more', readLessText:'Show less'})
+                }
+                menu.closest('.c_menu').find('button').css('visibility','visible')
+                menu.closest('.c_menu').data('hidden',false)
+                menu.show()
+              }
+            })
+            p_c.find('textarea').val($(this).closest('.comment_p').data('text').val())
+            p_c.find('textarea').focus()
+          })
+
+          m.find('.delete_c').off('click').on('click',function () {
+            var del_opt = $(this)
+            var pk = $(this).closest('.c_menu').data('id')
+            $.ajax({
+              url: `{% url 'gamesrec:update_comment' %}`,
+              method:'POST',
+              data: {'csrfmiddlewaretoken':`{{csrf_token}}`,id:pk,action:'delete', type:'comment'},
+              success: function (data) {
+                if (data.result == 'delete_success') {
+                  // update_comments_count()
+                  del_opt.closest('.comment_p').remove()
+                }
+                Snackbar.show({
+                  pos: 'bottom-left',
+                  text:`${data.msg}`,
+                  showAction:false,
+                  duration:2000
+                });
+              }
+            })
+          })
+        }
+        componentHandler.upgradeElement(m.find('button')[0]);
+        componentHandler.upgradeElement(m.find('ul')[0]);
+      })
+      loading = false
+      if (data.root_comments.length == 0) {
+        $('.end_comments_msg').find('msg').html('No more comments')
+        end_comments = true
+      }
+      // update_comments_count()
+    }
+  })
+}
+
+// function update_comments_count() {
+//   $.ajax({
+//     url: `{% url 'gamesrec:get_comments_count' %}`,
+//     method:'POST',
+//     data: {'csrfmiddlewaretoken':`{{csrf_token}}`, 'type_name':`{{type_name}}`, 't_id':{{t_id}}},
+//     success: function (data) {
+//       $('.total_comments_count').html(data.pretty_count)
+//     }
+//   })
+// }
+
+$(document).ready(function() {
+
+  fetch_root_comments(true)
+
+  var ld = setInterval(function () {
+    load_on_scroll($(window))
+  },1)
+
+})
+</script>
+
+<div class="box p-3 comments_component_wrapper">
+
+<div class="mt-0 box comments">
+</div>
+
+<div class="text-center end_comments_msg">
+  <msg><i class="fas fa-2x fa-spinner fa-spin"></i></msg>
+</div>
+
+</div>

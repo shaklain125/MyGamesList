@@ -1,0 +1,804 @@
+{% extends "gamesrec/base.html" %}
+{% load static %}
+{% load custom_tags %}
+<html>
+
+{% block title %}
+Search Results
+{% endblock %}
+
+{% block script %}
+
+<script>
+var keyword = `{{query}}`;
+
+async function search() {
+  {% if data.count > 0 and data.total_pages > 0 %}
+  prefetch_urls(catch_search_url_regex())
+  var p = {{page}};
+  $('#page-selection').twbsPagination({
+      totalPages: {{data.total_pages}},
+      startPage: {{page}},
+      pageVariable: 'page',
+      visiblePages: 5,
+      prev: '<i class="fas fa-angle-left"></i>',
+      next: '<i class="fas fa-angle-right"></i>',
+      first: '<i class="fas fa-angle-double-left"></i>',
+      last: '<i class="fas fa-angle-double-right"></i>',
+      href: true,
+      hideOnlyOnePage:true
+  })
+  {% endif %}
+  var data = JSON.parse(`{{ data|toJson}}`)
+  setTimeout(function () {
+    Load_search_r(data,null)
+  },0)
+}
+
+{% if data.count > 0 and data.total_pages > 0 %}
+function get_rawg_game(value) {
+  $.ajax({
+    url: "{% url 'gamesrec:get_rawg_game' %}",
+    method: 'POST',
+    data: {
+      csrfmiddlewaretoken: `{{csrf_token}}`,
+      by: 'slug',
+      slug: value['slug'],
+      released: value['first_release_date']
+    },
+    async: true,
+    success: function (data) {
+      prefetch_urls(catch_search_url_regex())
+      var rawg = data
+      if (rawg) {
+
+        set_trailers_dynamic_btn(`#btn-trailer-${value['id']}`, `#trailers-${value['id']}` ,value,rawg, function (trailers) {
+          if(trailers.length > 0)
+          {
+            $(`#btn-trailer-${value['id']}`).html(`<i class="fa fa-play-circle mr-2"></i> Watch Trailer`)
+          }else {
+            $(`#btn-trailer-${value['id']}`).html(`No trailers found`)
+            $(`#btn-trailer-${value['id']}`).prop('disabled','True')
+          }
+        })
+      }
+    }
+  });
+}
+{% endif %}
+
+async function Load_search_r(data,co) {
+  {% if data.count > 0 and data.total_pages > 0 %}
+  if ({{data.results|length}} != 0 || {{keyword|length}} == 0)
+  {
+    console.log(data);
+    $('#results_count').html({{data.count}})
+    var res_numb = {{page}}-1 ==  0 ? 0 : ({{page}}-1)*20
+    await promise(function (resolve,reject) {
+      $(`#load_status`).html(`0% loaded`)
+      resolve()
+    })
+
+    var g_ids = {}
+
+    for (var index in data['result']) {
+      var value = data['result'][index]
+
+      g_ids[value.id] = value
+
+      if (!value) {
+        continue
+      }
+
+      await promise(function (resolve, reject) {
+        $(`#load_status`).html(`${Math.floor(((parseInt(index)+1) / {{data.result|length}}) * 100)}% loaded`)
+        resolve()
+      })
+
+
+      var cover = value['cover']
+      set_cover(`#r-cover-${value['id']}`,cover)
+
+      {% if not request.user.is_authenticated %}
+      $(`#addbtn-${value.id}`).click(function () {
+        toastr.clear()
+        {% if not request.user.is_authenticated %}
+        toastr.error('Log in to add this game to your list','', {timeOut: 2000})
+        return false
+        {% else %}
+        return true
+        {% endif %}
+      })
+      {% else %}
+      var atl_modal = atl_edit()
+      atl_modal.on_submit = atl_modal.on_delete = function () {
+        setTimeout(function () {
+          update_addbtn()
+        },1000)
+      }
+      atl_modal.init(value.id, value.cover, value.title ,`#addbtn-${value.id}`, false)
+      {% endif %}
+
+      // var descr = value['description']
+      // var d = $('<textarea />').html(descr).text()
+      // if (d)
+      // {
+      //   if (d.length > 214)
+      //   {
+      //     descr = d.substring(0,214) + '...'
+      //   }else {
+      //     descr = d
+      //   }
+      //   $(`#r-descr-${value['id']}`).html(descr)
+      // }
+
+      var platforms = value['platforms'] ? value['platforms'] : []
+
+      var ser = ['playstation','pc','switch', 'nintendo','xbox']
+
+      var p_icons_obj = {}
+      for (var platform of platforms) {
+        get_platform_icon(platform, ser, p_icons_obj)
+      }
+      add_p_icons(p_icons_obj, function (index, icon) {
+        icon = $(icon)
+        icon.addClass('mt-2 mb-2')
+        icon = icon.prop('outerHTML')
+        $(`#platforms-${value['id']}`).append(`<span class="mr-2">${icon}</span>`)
+      })
+
+      set_star_rating_fa(`#r-star-${value['id']}`, parseFloat($(`#r-rating-${value['id']}`).html()))
+
+      // get_rawg_game(value)
+
+    }
+
+    $.ajax({
+      url: "{% url 'gamesrec:get_igdb_trailers' %}",
+      method: 'POST',
+      data: {
+        csrfmiddlewaretoken: `{{csrf_token}}`,
+        ids: JSON.stringify(Object.keys(g_ids))
+      },
+      async: true,
+      success: function (igdb_data) {
+        for (var key in g_ids) {
+          val = g_ids[key]
+          if (key in igdb_data) {
+            val['videos'] = igdb_data[key]
+          }
+          get_rawg_game(val)
+        }
+      }
+    });
+  }else {
+    $('#results_count').html(0)
+    $('#page-selection').parent().addClass('d-none')
+  }
+  {% else %}
+  $('#results_count').html(0)
+  $('#page-selection').parent().addClass('d-none')
+  {% endif %}
+  $(`#load_status`).remove()
+  $('#result_info').removeClass('d-none')
+  LAX_SETUP()
+}
+
+function search2() {
+  var params = params_to_json()
+  params['q'] = $(`#searchbar2`).val()
+  if ('page' in params)
+  {
+    params['page'] = 1
+  }
+  var o_fi = swap_obj_keys_value(get_filters(true))
+  for (var key in o_fi) {
+    delete params[key]
+  }
+  var fi = get_filters()
+  fi['re'] = `${$('#release_range').data('from')},${$('#release_range').data('to')}`
+  fi['so'] = $('#sort_by_select').children('option:selected').val()
+  Object.assign(params,fi)
+  log_q({q:params['q'], callback:function () {
+    params = json_to_params(params)
+    window.location.href = `{% url 'gamesrec:search' %}` + params
+  }})
+}
+
+function adv_filter_f(index=0) {
+  var f = $($(`.filter-header`)[index]).next()
+  if (index == 0) {
+    f = $($('.filter-box-adv')[0]).next()
+  }
+  var toggle_class = {
+    show: 'animated fadeIn faster',
+    hide: 'animated fadeOut faster'
+  }
+  var status = function () {
+    if (f.hasClass(toggle_class.show)) {
+      return true
+    }else if(f.hasClass(toggle_class.hide)) {
+      return false
+    }else {
+      if (f.hasClass('d-none')) {
+        return false
+      }else {
+        return true
+      }
+    }
+  }
+  var filter_toggle_func = {
+    show: function () {
+      if (f.hasClass(toggle_class.hide)) {
+        f.removeClass(toggle_class.hide)
+      }
+      f.addClass(toggle_class.show).removeClass('d-none')
+    },
+    hide: function () {
+      if (f.hasClass(toggle_class.show)) {
+        f.removeClass(toggle_class.show)
+      }
+      f.addClass(toggle_class.hide).addClass('d-none')
+    },
+    toggle: function () {
+      if (status()) {
+        this.hide()
+      }else {
+        this.show()
+      }
+    },
+    status: status(),
+  }
+  return filter_toggle_func
+}
+
+function adv_filter_ev_each() {
+  $(`.filter-header`).not(":eq(0)").each(function(index, el) {
+    index+=1
+    $(el).on('click',function () {
+      adv_filter_f(index).toggle()
+    })
+  });
+}
+
+function get_filters(u_keys=null) {
+  var u = {
+    platform:'pl',
+    mode:'gm',
+    perspective:'pp',
+    genre:'ge',
+    theme:'th',
+    pegi:'ar_p',
+    esrb:'ar_e',
+  }
+  if (u_keys) {
+    return u
+  }
+  var u_and_val = function (id, filter) {
+    if (filter) {
+      var dash_split = id.lastIndexOf('-')
+      var val = parseInt(id.substring(dash_split+1))
+      val = filter == 'exclude'? -val : val
+      return {u:u[id.substring(0,dash_split)],val:val}
+    }else {
+      return null
+    }
+  }
+  var filters = {}
+  $('.filter-body').each(function(index, el) {
+    $(el).find('.filter').each(function(index, el){
+      var k = u_and_val(el.id, $(el).attr('data-filter'))
+      if (k) {
+        k.u in filters? filters[k.u].push(k.val) : filters[k.u] = [k.val]
+        // console.log(k.u,k.val)
+      }
+    })
+  });
+  return filters
+}
+
+function release() {
+  {% released_range as released_range %}
+  $('#release_range').ionRangeSlider({
+    type: "double",
+    min: {{released_range.from}},
+    max: {{released_range.to}},
+    from: {{released_range.from}},
+    to: {{released_range.to|subtract:10}},
+    prettify_enabled:false,
+    skin: "round",
+    grid_snap: false,
+    hide_min_max:true,
+    step: 1,
+    onStart: function () {
+      // console.log(this);
+      $('#release_range').parent().addClass('animated fadeIn faster')
+    }
+  });
+}
+
+function update_addbtn() {
+  $.post(`{% url 'gamesrec:add_or_edit_bool' %}`, {csrfmiddlewaretoken:`{{csrf_token}}`,gids:`{% check_if_game_in_list gs=data.result %}`}, function(data, textStatus) {
+    $('.addbtn').each(function(index, el) {
+      var icon = $($(el).find('i'))
+      if (data.result[index]) {
+        icon.removeClass('fas fa-plus').addClass('fas fa-pencil-alt')
+      }else{
+        icon.removeClass('fas fa-pencil-alt').addClass('fas fa-plus')
+      }
+    });
+  })
+}
+
+$(document).ready(function() {
+  Load_page_async(function () {
+    update_addbtn()
+    release()
+    filtering_chkbox('.filter')
+    $($(`.filter-box-adv .filter-header`)[0]).on('click',function () {
+      adv_filter_f().toggle()
+    })
+    adv_filter_ev_each()
+    $('#search2, #adv_f_search2').on('click',function(e) {
+      search2()
+    })
+    $('#adv_f_reset').on('click',function () {
+      $('.filter').each(function(index, el) {
+        setFilterChk(`#${el.id}`)
+      });
+      {% released_range as released_range %}
+      $('#release_range').data("ionRangeSlider").update({from:{{released_range.from}},to:{{released_range.to|subtract:10}}})
+      $('select#sort_by_select').val('1')
+      $(`.filter-header`).each(function(index, el) {
+        adv_filter_f(index+1).hide()
+      });
+    })
+    $('#searchbar2').on('keyup',function(e) {
+      if(e.keyCode == 13)
+      {
+        e.preventDefault()
+        $('#search2').click()
+      }
+    })
+    setTimeout(function () {
+      var l = function () {
+        return search()
+      }
+      async_func(l)
+    },0)
+  })
+});
+
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="pb-5">
+
+
+
+<div class="row">
+  <div class="col-lg-5 col-md-5">
+    <div class="content-side">
+      <div id="advanced-search" class="advanced-search box">
+        <div class="box-header">
+          <h2>Advanced Search</h2>
+        </div>
+        <div class="box-body b-t">
+          <div class="searchBox">
+            <div class="searchText">
+              <div class="input-group">
+                <div class="input-group-btn dropdown">
+                  <button id="search2" class="btn btn-white rounded-left border-right-0">
+                    <span class="keyword-search active">Search</span>
+                  </button>
+                </div>
+                <input id="searchbar2" type="text" placeholder="Keywords..." class="form-control" value="{{query}}">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="filter-box-adv light-b mt-2 mb-2">
+          <div class="filter-header"><b>Advanced Filter</b> <i class="pull-right fa fa-times"></i>
+            <div class="text-xs text-muted">Click to include a sub-category, or double click to exclude a sub-category.</div>
+          </div>
+        </div>
+
+        {% released_range as released_range %}
+        <div class="{% if filters_length == 0 %}d-none{% else %}
+        {% if filters_length == 1 and filters.released|length != 0 and filters.released.from == released_range.from and filters.released.to == released_range.to|subtract:10 %}
+        d-none
+        {% endif %}
+        {% endif %}">
+            <div class="filter-box border-0">
+              <div class="filter-header"><b>Platform</b> <i class="pull-right fa fa-caret-down"></i></div>
+                <div class="filter-body row {% if filters.platforms|length == 0 %}d-none{% endif %}">
+                {% platforms as db_platforms %}
+                {% for p in db_platforms %}
+                {% autoescape off %}
+                {{p|add_key_val:'op_key:platforms'}}
+                {{p|add_key_val:'html_id_start:platform'}}
+                {{p|filter_el:filters}}
+                {% endautoescape %}
+                {% endfor %}
+                </div>
+            </div>
+
+            <div class="filter-box">
+              <div class="filter-header"><b>Game Mode</b> <i class="pull-right fa fa-caret-down"></i></div>
+                <div class="filter-body row {% if filters.game_modes|length == 0 %}d-none{% endif %}">
+                {% game_modes as modes %}
+                {% for m in modes %}
+                {% autoescape off %}
+                {{m|add_key_val:'op_key:game_modes'}}
+                {{m|add_key_val:'html_id_start:mode'}}
+                {{m|add_key_val:'chosen_tooltip:name'}}
+                {{m|filter_el:filters}}
+                {% endautoescape %}
+                {% endfor %}
+                </div>
+            </div>
+
+            <div class="filter-box">
+              <div class="filter-header"><b>Player Perspectives</b> <i class="pull-right fa fa-caret-down"></i></div>
+                <div class="filter-body row {% if filters.player_perspectives|length == 0 %}d-none{% endif %}">
+                {% player_perspectives as persps %}
+                {% for persp in persps %}
+                {% autoescape off %}
+                {{persp|add_key_val:'op_key:player_perspectives'}}
+                {{persp|add_key_val:'html_id_start:perspective'}}
+                {{persp|filter_el:filters}}
+                {% endautoescape %}
+                {% endfor %}
+                </div>
+            </div>
+
+            {% genres_and_themes as genres_and_themes %}
+
+            <div class="filter-box">
+              <div class="filter-header"><b>Genres</b> <i class="pull-right fa fa-caret-down"></i></div>
+                <div class="filter-body row {% if filters.genres|length == 0 %}d-none{% endif %}">
+                {% for genre in genres_and_themes.genres %}
+                {% autoescape off %}
+                {{genre|add_key_val:'op_key:genres'}}
+                {{genre|add_key_val:'html_id_start:genre'}}
+                {{genre|filter_el:filters}}
+                {% endautoescape %}
+                {% endfor %}
+                </div>
+            </div>
+
+            <div class="filter-box">
+              <div class="filter-header"><b>Themes</b> <i class="pull-right fa fa-caret-down"></i></div>
+                <div class="filter-body row {% if filters.themes|length == 0 %}d-none{% endif %}">
+                {% for theme in genres_and_themes.themes %}
+                {% autoescape off %}
+                {{theme|add_key_val:'op_key:themes'}}
+                {{theme|add_key_val:'html_id_start:theme'}}
+                {{theme|filter_el:filters}}
+                {% endautoescape %}
+                {% endfor %}
+                </div>
+            </div>
+
+            {% age_ratings as age_ratings %}
+
+            <div class="filter-box">
+              <div class="filter-header"><b>Age Ratings</b> <i class="pull-right fa fa-caret-down"></i></div>
+                <div class="filter-body row {% if filters|get_val_length:'age_ratings.category_p' == 0 and filters|get_val_length:'age_ratings.category_e' == 0 %}d-none{% endif %}">
+
+                <span class="text-muted font-weight-bold mt-2 ml-2 mb-1 col-12" style="font-size:12px;">PEGI (Pan European Game Information)</span>
+
+                {% for pegi in age_ratings.pegi %}
+                {% autoescape off %}
+                {{pegi|add_key_val:'op_key:age_ratings.category_p'}}
+                {{pegi|add_key_val:'html_id_start:pegi'}}
+                {{pegi|filter_el:filters}}
+                {% endautoescape %}
+                {% endfor %}
+
+                <span class="text-muted font-weight-bold mt-2 ml-2 mb-1 col-12" style="font-size:12px;">ESRB (Entertainment Software Rating Board)</span>
+
+                {% for esrb in age_ratings.esrb %}
+                {% autoescape off %}
+                {{esrb|add_key_val:'op_key:age_ratings.category_e'}}
+                {{esrb|add_key_val:'html_id_start:esrb'}}
+                {{esrb|filter_el:filters}}
+                {% endautoescape %}
+                {% endfor %}
+
+                </div>
+            </div>
+
+
+            <div class="filter-box">
+              <div class="filter-header"><b>Release Date</b> <i class="pull-right fa fa-caret-down"></i></div>
+              {% released_range as released_range %}
+                <div class="filter-body row {% if filters.released|length == 0 or filters.released|length != 0 and filters.released.from == released_range.from and filters.released.to == released_range.to|subtract:10 %}d-none{% endif %}">
+                  <div class="mt-2 mb-2 ml-5 mr-5" style="width:100%">
+                    {% if filters.released|length == 0 or filters.released|length != 0  and filters.released.from == released_range.from and filters.released.to == released_range.to|subtract:10 %}
+                    <input type="text" class="d-none" id="release_range" />
+                    {% else %}
+                    <input type="text" class="d-none" id="release_range" data-from="{{filters.released.from}}" data-to="{{filters.released.to}}" />
+                    {% endif %}
+                  </div>
+                </div>
+            </div>
+
+            <div class="filter-box">
+              <div class="filter-header"><b>Sort by</b> <i class="pull-right fa fa-caret-down"></i></div>
+                <div class="filter-body row {% if filters.sort == None or filters.sort != None and filters.sort == 1  %}d-none{% endif %}">
+                  <div class="col-6 mt-2 mb-2" style="width:100%">
+                    {% sort_options as sort_options %}
+                    <select class="browser-default custom-select" id="sort_by_select">
+                      {% for option in sort_options %}
+                          {% if forloop.counter0 == 0 or filters.sort != None and filters.sort == forloop.counter %}
+                          <option value="{{forloop.counter}}" selected>{{option}}</option>
+                          {% else %}
+                          <option value="{{forloop.counter}}">{{option}}</option>
+                          {% endif %}
+
+                      {% endfor %}
+                    </select>
+                  </div>
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="box-footer b-t">
+          <div class="sectionEnd">
+            <div class="block">
+              <button id="adv_f_search2" class="btn btn-dark themebgclr">Search</button>
+              <button id="adv_f_reset" type="reset" class="btn btn-white float-right">Reset</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7 col-md-7">
+    <p id="load_status">0% loaded</p>
+    <p id="result_info" class="m-b-sm d-none"><span id="results_count"></span> results found for: <strong>{{query}}</strong>
+    </p>
+    <div id="search_results" class="m-t nav-active-border b-primary">
+
+      {% for value in data.result  %}
+      <div id="r-{{value.id}}" class="box">
+        <div class="box-body">
+          <div class="row">
+            <div class="col-xs-3 row-cell game-cover cover">
+              <div class="item">
+                <a class="d-block" href="{{value.url}}">
+                  <canvas id="r-cover-{{value.id}}" style="width:100%;background-color:black;" class="img-responsive" width="300" height="422" alt="{{value.name}}"></canvas>
+                </a>
+              </div>
+            </div>
+            <div class="col-xs-9 row-cell">
+              <div id="r-rank-{{value.id}}" class="ranking float-right"><span>{{data.offset|add:forloop.counter}}</span></div>
+              <h6 class="text-primary title">
+                <a href="{{value.url}}">{{value.title}}</a>
+                <a class="btn btn-xs btn-white addbtn" id="addbtn-{{value.id}}"><span><i class="fas fa-plus"></i></span></a>
+              </h6>
+              <span class="text-muted">
+                <div id="platforms-{{value.id}}" style="height:35.6px;">
+                </div>
+              </span>
+              <div class="mt-1">
+                <span class="rating mr-1"><span class="fill" id="r-star-{{value.id}}" style="width:0%"></span></span>
+                <span id="r-rating-{{value.id}}" class="p-l-xs text-sm score">{{value.rating}}</span>
+              </div>
+              <p id="r-descr-{{value.id}}" class="mt-2">
+                {{value.description}}
+              </p>
+              <button id="btn-trailer-{{value.id}}" class="btn-trailer btn-sm m-r-sm btn btn-white" style="font-size:12px;"><i class="fa-lg fas fa-circle-notch fa-spin mr-2"></i> Loading Trailers</button>
+              <div id="trailers-{{value.id}}" class="d-none"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+
+      {% comment %} <div id="mdl-1" class="box">
+        <div class="box-body">
+          <div class="row">
+            <div class="col-xs-3 row-cell film-cover cover">
+              <div class="item">
+                <a class="d-block" href="#">
+                  <img style="width:100%" src="{% static '/gamesrec/blank_300x422.png'%}" alt="Title">
+                </a>
+              </div>
+            </div>
+            <div class="col-xs-9 row-cell">
+              <div class="ranking float-right"><span>#Rank</span></div>
+              <h6 class="text-primary title">
+                <a href="#">Title</a>
+              </h6>
+              <span class="text-muted">Release Date/Platform</span>
+              <p><span class="rating"><span class="fill" style="width:85%"></span></span> <span class="p-l-xs score">0.0</span></p>
+              <p>Information…</p>
+              <button class="btn-trailer btn-sm m-r-sm btn btn-white"><i class="fa fa-play-circle"></i> Watch Trailer</button>
+            </div>
+          </div>
+        </div>
+      </div> {% endcomment %}
+    </div>
+    <nav>
+      <ul id="page-selection" class="pagination pg-blue"></ul>
+    </nav>
+  </div>
+</div>
+
+
+
+
+
+</div>
+
+{% endblock %}
+
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{% block css %}
+
+<style>
+
+.advanced-search .filter-box .filter-body {
+    padding: 0 15px 15px;
+}
+
+.light-b {
+    background-color: var(--bg-1);
+    color: var(--text-color);
+}
+
+.advanced-search .filter-header {
+    padding: 15px;
+    cursor: pointer;
+    display: block;
+}
+
+.advanced-search .filter-box {
+    border-top: var(--border-1);
+}
+
+.pull-right {
+    float: right;
+}
+
+/* separator mdl-bs */
+
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+  margin-bottom: .5rem;
+  font-family: inherit;
+  font-weight: 500;
+  line-height: 1.1;
+  color: inherit
+}
+
+.col-xs-1, .col-xs-2, .col-xs-3, .col-xs-4, .col-xs-5, .col-xs-6, .col-xs-7, .col-xs-8, .col-xs-9, .col-xs-10, .col-xs-11, .col-xs-12, .col-sm-1, .col-sm-2, .col-sm-3, .col-sm-4, .col-sm-5, .col-sm-6, .col-sm-7, .col-sm-8, .col-sm-9, .col-sm-10, .col-sm-11, .col-sm-12, .col-md-1, .col-md-2, .col-md-3, .col-md-4, .col-md-5, .col-md-6, .col-md-7, .col-md-8, .col-md-9, .col-md-10, .col-md-11, .col-md-12, .col-lg-1, .col-lg-2, .col-lg-3, .col-lg-4, .col-lg-5, .col-lg-6, .col-lg-7, .col-lg-8, .col-lg-9, .col-lg-10, .col-lg-11, .col-lg-12, .col-xl-1, .col-xl-2, .col-xl-3, .col-xl-4, .col-xl-5, .col-xl-6, .col-xl-7, .col-xl-8, .col-xl-9, .col-xl-10, .col-xl-11, .col-xl-12 {
+  position: relative;
+  min-height: 1px;
+  padding-right: 15px;
+  padding-left: 15px
+}
+
+.col-xs-1 {
+  float: left;
+  width: 8.33333%
+}
+
+.col-xs-2 {
+  float: left;
+  width: 16.66667%
+}
+
+.col-xs-3 {
+  float: left;
+  width: 25%
+}
+
+.col-xs-4 {
+  float: left;
+  width: 33.33333%
+}
+
+.col-xs-5 {
+  float: left;
+  width: 41.66667%
+}
+
+.col-xs-6 {
+  float: left;
+  width: 50%
+}
+
+.col-xs-7 {
+  float: left;
+  width: 58.33333%
+}
+
+.col-xs-8 {
+  float: left;
+  width: 66.66667%
+}
+
+.col-xs-9 {
+  float: left;
+  width: 75%
+}
+
+.col-xs-10 {
+  float: left;
+  width: 83.33333%
+}
+
+.col-xs-11 {
+  float: left;
+  width: 91.66667%
+}
+
+.col-xs-12 {
+  float: left;
+  width: 100%
+}
+
+
+/* separator mdl-styles */
+
+
+@media (max-width: 61.9em) {
+    .row {
+        margin-left: -8px;
+        margin-right: -8px
+    }
+    .row [class*=col-] {
+        padding-left: 8px;
+        padding-right: 8px
+    }
+    .row-2 [class*=col] {
+        width: 50%;
+        float: left
+    }
+    .row-2 .col-0 {
+        clear: none
+    }
+    .row-2 li:nth-child(odd) {
+        clear: left;
+        margin-left: 0
+    }
+}
+
+@media (max-width: 47.9em) {
+    .row {
+        margin-left: -4px;
+        margin-right: -4px
+    }
+    .row [class*=col-] {
+        padding-left: 4px;
+        padding-right: 4px
+    }
+}
+
+</style>
+
+{% endblock %}

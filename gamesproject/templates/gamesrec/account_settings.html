@@ -1,0 +1,756 @@
+{% extends "gamesrec/base.html" %}
+{% load crispy_forms_tags %}
+{% load crispy_forms_field %}
+{% load static %}
+{% load custom_tags %}
+
+
+{% block title %}
+
+{{title}}
+
+{% endblock %}
+
+{% block script %}
+
+<script>
+{% if path_name == 'account_settings' %}
+function account_settings(){
+  var today = new Date()
+  today.setDate(today.getDate()-1)
+  $('#id_date_of_birth').pickadate({
+    firstDay: 1,
+    today: '',
+    max: new Date(moment().subtract(13, 'years').calendar()),
+    selectYears: 100,
+    closeOnSelect: true,
+    closeOnClear:true,
+  });
+
+
+  // $('').on('click', function(e) {
+  //   var formdata = new FormData($('form#settingsFrm'))
+  //   $.ajax({
+  //     url: '',
+  //     method:'POST',
+  //     data: formdata,
+  //     success: function (data) {
+  //
+  //     },
+  //     cache: false,
+  //     contentType: false,
+  //     processData: false
+  //   })
+  // });
+
+  $('#remove_pic').on('change',function () {
+    var cbox = $(this)
+    $.confirm({
+      animationSpeed: 0,
+      draggable:false,
+      title:'Remove profile picture',
+      buttons: {
+          ok: {
+            btnClass:'mdl-button mdl-js-button p-0 mdl-js-ripple-effect color-inherit',
+            text: 'Ok',
+            action: function () {
+              if (cbox.prop('checked')) {
+                cbox.prop('checked',false)
+              }else {
+                return
+              }
+              var cancel = false
+              cbox.data('cancel', false)
+              var on_hidden = function () {
+                if (cancel) {
+                  $('#rm_pic').removeClass('d-none')
+                  return
+                }
+                $.ajax({
+                  url: `{% url 'gamesrec:remove_picture' %}`,
+                  method:'POST',
+                  data: {'remove':true, 'csrfmiddlewaretoken':`{{csrf_token}}`},
+                  success: function (data) {
+                    toastr.clear()
+                    if (data['result'] == 'success') {
+                      toastr.success('Profile picture removed','', {timeOut: 1000})
+                      $($('.header-user-avatar')[0]).attr('src',data['picture'])
+                      $('#acc_sett_pic').attr('src',data['picture'])
+                      $('#rm_pic').addClass('d-none')
+                    }else {
+                      toastr.error('Error while removing profile picture','', {timeOut: 2000})
+                      $('#rm_pic').removeClass('d-none')
+                    }
+                  },
+                })
+              }
+              cbox.data('f', on_hidden)
+              $('#rm_pic').addClass('d-none')
+
+              // mdtoast('Profile photo removed.', {
+              //   // type: 'success',
+              //   interaction: true,
+              //   actionText: 'UNDO',
+              //   interactionTimeout:5000,
+              //   action: function(){
+              //     cancel = true
+              //     this.hide();
+              //   },
+              //   callbacks:{
+              //     hidden: function () {
+              //
+              //     }
+              //   }
+              // });
+
+              Snackbar.show({
+                pos: 'bottom-left',
+                text:'Profile photo removed',
+                showAction:true,
+                actionText:'Undo',
+                duration:5000,
+                onActionClick: function (e) {
+                  cancel=true
+                  cbox.data('cancel', true)
+                  $(e).css('opacity', 0);
+                },
+                onClose: function () {
+                  on_hidden()
+                }
+              });
+
+
+            }
+          },
+          cancel: {
+              btnClass:'mdl-button mdl-js-button p-0 mdl-js-ripple-effect color-inherit',
+              text: 'Cancel',
+              action: function () {
+                if (cbox.prop('checked')) {
+                  cbox.prop('checked',false)
+                }else {
+                  return
+                }
+                $('#rm_pic').removeClass('d-none')
+              }
+          }
+      }
+    })
+  })
+
+  $('#upload_pic').on('click',function () {
+    $('#id_picture').click()
+  })
+
+  $('#id_picture').on('change',function () {
+    if ($('#id_picture')[0].files.length == 1) {
+      var f = new FormData()
+      f.append('picture', $('#id_picture')[0].files[0]);
+      f.append('csrfmiddlewaretoken',`{{csrf_token}}`)
+      $.ajax({
+        url: `{% url 'gamesrec:upload_picture' %}`,
+        method:'POST',
+        enctype: 'multipart/form-data',
+        data: f,
+        success: function (data) {
+          if (data['updated']) {
+            $($('.header-user-avatar')[0]).attr('src',data['updated'])
+            $('#acc_sett_pic').attr('src',data['updated'])
+            $('#rm_pic').removeClass('d-none')
+          }
+        },
+        cache: false,
+        contentType: false,
+        processData: false
+      })
+      $('#id_picture').val('')
+    }
+  })
+
+  $('#id_dark_mode').on('change',function () {
+    change_theme($(this).prop('checked'))
+  })
+
+  $('a').on('click',function () {
+    if ($('#remove_pic').data('cancel') == false) {
+      $('#remove_pic').data('f')()
+      $('#remove_pic').removeData('cancel')
+      $('#remove_pic').removeData('f')
+    }
+  })
+
+  $('#settingsFrm').on('submit',function (e) {
+    e.preventDefault()
+    var f = new FormData(this)
+    if (f.get('dob')) {
+      f.set('dob',moment(f.get('dob'), "DD mmmm, yyyy").format('YYYY-MM-DD'))
+    }
+    $.ajax({
+      url: `{% url 'gamesrec:account_settings' %}`,
+      method:'POST',
+      enctype: 'multipart/form-data',
+      data: f,
+      success: function (data) {
+        if ($('#remove_pic').data('cancel') == false) {
+          $('#remove_pic').data('f')()
+          $('#remove_pic').removeData('cancel')
+          $('#remove_pic').removeData('f')
+        }
+        if (data['result'] == 'success') {
+          Snackbar.show({
+            pos: 'bottom-left',
+            text:'<i class="fas fa-check mr-2"></i>Settings updated',
+            showAction:false,
+            backgroundColor:'#388e3c',
+            duration:1000
+          });
+          // mdtoast('<i class="fas fa-check mr-2"></i>Settings updated.', {type: 'success',duration:1000, modal: true})
+        }else {
+          Snackbar.show({
+            pos: 'bottom-left',
+            text:'<i class="fas fa-times mr-2"></i>Update failed',
+            showAction:false,
+            backgroundColor:'#f44336',
+            duration:1000
+          });
+          // mdtoast('<i class="fas fa-times mr-2"></i>Update failed', {type: 'error',duration:1000, modal: true})
+        }
+      },
+      cache: false,
+      contentType: false,
+      processData: false
+    })
+  })
+}
+{% elif path_name == 'account_privacy' %}
+function add_devices(data) {
+  $('.devices_table > tbody').html('')
+  data.devices.map(x =>{
+    var rm_btn = $(`
+    <rm><button id="device_remove_${x.id}" class="mdl-button mdl-js-button mdl-button--icon p-0"><span><i class="fas fa-xs fa-trash"></i></span></button>
+    <div class="mdl-tooltip" data-mdl-for="device_remove_${x.id}">End Session</div></rm>
+    `)
+    rm_btn.find('button').data('id',x.id)
+    rm_btn.find('button').on('click',function () {
+      var rm = $(this)
+      $.confirm({
+        animationSpeed: 0,
+        draggable:false,
+        title:'End Session',
+        content: '',
+        buttons: {
+            ok: {
+              btnClass:'mdl-button mdl-js-button p-0 mdl-js-ripple-effect color-inherit',
+              text: 'Ok',
+              action: function () {
+                $.ajax({
+                  url: `{% url 'gamesrec:remove_session' %}`,
+                  method:'POST',
+                  data: {'csrfmiddlewaretoken':`{{csrf_token}}`, id: rm.data('id')},
+                  success: function (data) {
+                    if (data.result) {
+                      rm.closest('tr').remove()
+                      Snackbar.show({
+                        pos: 'bottom-left',
+                        text:`${data.msg}`,
+                        showAction:false,
+                        // backgroundColor:'#388e3c',
+                        duration:2000
+                      });
+                    }
+                    if (data.current) {
+                      window.location.href = data.redirect
+                    }
+                  }
+                })
+              }
+            },
+            cancel: {
+                btnClass:'mdl-button mdl-js-button p-0 mdl-js-ripple-effect color-inherit',
+                text: 'Cancel',
+                action: function () {
+                }
+            }
+        }
+      })
+    })
+    var d = $(`
+    <tr>
+      <td class="rm_d">
+      </td>
+      <td class="mdl-data-table__cell--non-numeric">
+        <span><span class="font-weight-bold">${x.device}</span> - <span> ${x.ip_address}</span></span>
+        <br />
+        ${x.location?`<span>${x.location}</span><br />`:''}
+        <span class="text-muted" id="status_${x.id}"><span class="${x.last_active == 'Active'? 'text-success font-weight-bold': ''}">${x.last_active}</span> ${x.is_current? '<span class="font-weight-bold">(current)</span>' : ''}</span>
+      </td>
+    </tr>
+    `)
+    $(d).find('.rm_d').append(rm_btn)
+    $('.devices_table > tbody').append(d)
+    componentHandler.upgradeElement(rm_btn.find('button')[0])
+  })
+}
+
+function logged_in_devices(add=true) {
+  $.ajax({
+    url: `{% url 'gamesrec:get_user_sessions' %}`,
+    method:'POST',
+    data: {'csrfmiddlewaretoken':`{{csrf_token}}`},
+    success: function (data) {
+      if (add) {
+        add_devices(data)
+      }else{
+        data.devices.map(x =>{
+          $(`#status_${x.id}`).html(`<span class="${x.last_active == 'Active'? 'text-success font-weight-bold': ''}">${x.last_active}</span> ${x.is_current? '<span class="font-weight-bold">(current)</span>' : ''}`)
+        })
+      }
+    }
+  })
+}
+{% endif %}
+
+$(document).ready(function() {
+  {% if path_name == 'account_settings' %}
+  account_settings()
+  {% elif path_name == 'account_privacy' %}
+  logged_in_devices()
+
+  setInterval(function () {
+    logged_in_devices(false)
+  }, 5000)
+  {% endif %}
+});
+
+
+</script>
+
+{% endblock  %}
+
+{% block content %}
+
+<div class="row">
+  <div class="col-lg-12">
+    <div class="box">
+      <div id="app_view" style="min-height: 450px;" class="">
+        <div class="box-header box-navbar">
+          <h1>Settings</h1>
+          <ul class="nav nav-tabs">
+            <li class="page-item nav-item {% if path_name == 'account_settings' %}active{% endif %}"><a href="{% url 'gamesrec:account_settings' %}" class="nav-link">Profile</a></li>
+            <li class="page-item nav-item {% if path_name == 'account_privacy' %}active{% endif %}"><a href="{% url 'gamesrec:account_privacy' %}" class="nav-link">Security &amp; Privacy</a></li>
+          </ul>
+        </div>
+        {% if path_name == 'account_settings' %}
+        <form id="settingsFrm">
+          {% csrf_token %}
+          <div class="box-body" style="min-height: 500px;">
+              <div class="form-group">
+                <div class="row"><label for="display_name" class="col-sm-2 control-label"><b>{{form_p.picture.label}}</b></label>
+                  <div class="col-md-4">
+                    <div class="row">
+                      <div class="col-md-4 mb-2"><img id="acc_sett_pic" src="{% profile_picture_64 request.user %}" class="w-64"></div>
+                      <div class="col-md-7">
+                        <div>
+                            <div tabindex="0" class="el-upload el-upload--text mr-3">
+                              <button type="button" id="upload_pic" class="el-button btn el-button--primary">
+                                <span>Upload</span>
+                              </button>
+                              <span class="d-none">{% crispy_field form_p.picture %}</span>
+                            </div>
+                            {% check_has_profile_pic as check_has_profile_pic  %}
+                            <div id="rm_pic" class="pretty p-icon mt-3 {% if check_has_profile_pic == False %}d-none{% endif %}">
+                              <input type="checkbox" name="remove_pic" id="remove_pic">
+                              <div class="state p-danger">
+                                <i class="icon fa fa-times"></i>
+                                <label> Remove profile picture</label>
+                              </div>
+                            </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="row">
+                  <label for="display_name" class="col-sm-2 control-label"><b>{{form_p.display_name.label}}</b></label>
+                  <div class="col-sm-4">
+                    <div class="el-input">
+                      {% crispy_field form_p.display_name %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="row">
+                  <label for="username" class="col-sm-2 control-label"><b>{{form_u.username.label}}</b></label>
+                  <div class="col-sm-4">
+                    <div class="el-input is-disabled">
+                      {% crispy_field form_u.username %}
+                    </div>
+                    <div class="text-muted">
+                      <small>
+                        {% autoescape off %}
+                        {{full_profile_url}}
+                        {% endautoescape %}
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="row">
+                  <label for="email" class="col-sm-2 control-label"><b>{{form_u.email.label}}</b></label>
+                  <div class="col-sm-4">
+                    <div class="el-input is-disabled">
+                      {% crispy_field form_u.email %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="row">
+                  <label for="gender" class="col-sm-2 control-label"><b>{{form_u.gender.label}}</b></label>
+                  <div class="col-sm-4">
+                    <div class="el-input">
+                      {% crispy_field form_u.gender %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+
+              <div class="form-group">
+                <div class="row">
+                  <label for="dob" class="col-sm-2 control-label"><b>{{form_u.dob.label}}</b></label>
+                  <div class="col-sm-4">
+                    <div class="el-input">
+                      {% crispy_field form_u.date_of_birth %}
+                    </div>
+                    <div class="text-muted">
+                      <small>
+                        Birth year will always be hidden.
+                      </small>
+                    </div>
+                  </div>
+                  <div class="col-sm-2"><label for="dob_privacy" class="p-t-xs">
+                    <div class="pretty p-icon p-round p-pulse">
+                      {% crispy_field form_p.dob_privacy %}
+                      <div class="state p-danger">
+                          <i class="icon fa fa-check"></i>
+                          <label>{{form_p.dob_privacy.label}}</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="row">
+                  <label for="dark_mode" class="col-sm-2 control-label"><b>{{form_p.dark_mode.label}}</b></label>
+                  <div class="col-sm-4">
+                    <div class="el-input">
+                      <label class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="id_dark_mode">
+                        {% crispy_field form_p.dark_mode %}
+                        <span class="mdl-switch__label"></span>
+                      </label>
+                    </div>
+                    {% comment %} <div class="text-muted">
+                      <small>
+                        Birth year will always be hidden.
+                      </small>
+                    </div> {% endcomment %}
+                  </div>
+                </div>
+              </div>
+              {% comment %} {% crispy form_u %} {% endcomment %}
+
+              {% comment %} {% crispy form_p %} {% endcomment %}
+          </div>
+          <div style="background-color:rgba(120,130,140,.30) !important;height: 1px;margin: .5rem 0;overflow: hidden;">
+
+          </div>
+          <div class="box-footer">
+
+            <button type="submit" class="el-button el-button--primary">
+              <span>Save Changes</span>
+            </button>
+
+          </div>
+        </form>
+        {% elif path_name == 'account_privacy' %}
+        <div style="min-height: 500px;">
+
+          <div>
+            <div class="box-header light">
+              <h3>Security</h3>
+            </div>
+            <div class="box-divider m-a-0"></div>
+            <div class="box-body">
+              <div class="mt-3">
+                <div class="form-group">
+                  <div class="row">
+                    <label for="change_password" class="col-sm-2 control-label"><b>Change Password</b></label>
+                    <div class="col-sm-6">
+                      <a href="{% url 'gamesrec:password_change' %}" class="el-button el-button--primary is-plain"><span>Change password.</span></a>
+                      <div class="mt-3">
+                        <small class="text-muted">Forgot your password?</small> <small><a href="{% url 'gamesrec:password_reset' %}" class="text-primary link_color">Request a password recovery email.</a></small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="box-header light">
+              <h3>Where You're Logged In</h3>
+            </div>
+            <div class="box-divider m-a-0"></div>
+            <div class="box-body">
+              <div class="mt-3">
+                <div class="form-group">
+                  <div class="row">
+                    <div class="col-12">
+
+                      <table class="devices_table mdl-data-table mdl-js-data-table mdl-shadow--2dp">
+                        <thead>
+                          <tr>
+                            <th class="mdl-data-table__cell--non-numeric remove_device"></th>
+                            <th class="mdl-data-table__cell--non-numeric devices">Devices</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+
+                        </tbody>
+                      </table>
+
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+
+
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{% block css %}
+
+<style>
+
+
+.mdl-switch__track {
+    background: #606060 !important;
+}
+
+.mdl-switch.is-checked .mdl-switch__thumb {
+    background: rgb(103,58,183);
+}
+
+.picker--opened .picker__holder {
+    outline: 0;
+}
+
+.picker .picker__box{
+  border: 0px !important;
+}
+
+.picker__button--clear, .picker__button--close{
+  background-color: var(--opposite-text-color) !important;
+  color: var(--text-color) !important;
+  border: var(--separator) !important;
+  box-shadow:var(--separator) !important;
+}
+
+.picker__box{
+  background-color: var(--box-bg-color) !important;
+}
+
+.el-input__inner {
+    -webkit-appearance: none !important;
+    /* background-color: #fff; */
+    border-radius: 4px !important;
+    /* border: var(--border-1) !important; */
+    box-sizing: border-box !important;
+    /* color: #606266; */
+    display: inline-block !important;
+    font-size: inherit !important;
+    height: 40px !important;
+    line-height: 40px !important;
+    outline: 0 !important;
+    padding: 0 15px !important;
+    transition: border-color .2s cubic-bezier(.645,.045,.355,1) !important;
+    width: 100% !important;
+}
+
+.el-upload {
+    display: inline-block;
+    text-align: center;
+    cursor: pointer;
+    outline: 0;
+}
+
+.el-button--primary {
+    color: #fff !important;
+    background-color: var(--theme-bg-color) !important;
+    border-color: var(--theme-bg-color);
+}
+
+.picker__box .picker__table .picker__day--selected, .picker__box .picker__table .picker__day--selected:hover, .picker__box .picker__table .picker--focused {
+    background-color: var(--theme-bg-color) !important;
+}
+
+.el-button.el-button--primary {
+    -moz-box-shadow: 0 1px 1px 0 rgba(0,0,0,.25);
+    -webkit-box-shadow: 0 1px 1px 0 rgba(0,0,0,.25);
+    box-shadow: 0 1px 1px 0 rgba(0,0,0,.25);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* border: 1px solid #1f6fa7; */
+}
+
+.el-button {
+    display: inline-block;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    /* background: #fff; */
+    /* border: 1px solid #dcdfe6; */
+    /* color: #606266; */
+    text-align: center;
+    box-sizing: border-box;
+    margin: 0;
+    transition: .1s;
+    font-weight: 500;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    padding: 12px 20px;
+    font-size: 14px;
+    border-radius: 4px;
+}
+
+.el-input.is-disabled .el-input__inner, .el-input.is-disabled {
+    /* background-color: #f5f7fa !important; */
+    /* border-color: #e4e7ed !important; */
+    background-color: transparent!important;
+    color: #c0c4cc !important;
+    cursor: not-allowed !important;
+}
+
+.picker__day--disabled{
+  color: #66686b !important;
+  background-color: var(--bg-1) !important;
+}
+
+.picker__box .picker__table{
+  color: var(--text-color) !important;
+}
+
+.picker__box .picker__header .picker__date-display{
+  background-color: var(--theme-bg-color);
+}
+
+.picker__day .picker__day--infocus .picker__day--selected .picker__day--highlighted {
+    color: #fff !important;
+}
+
+.picker__box .picker__table .picker__day--infocus:hover {
+    color: var(--text-color) !important;
+    font-weight: 500;
+}
+
+.el-input {
+    position: relative;
+    font-size: 14px;
+    display: inline-block;
+    width: 100%;
+}
+
+table, tr, td{
+  /* background-color:transparent !important; */
+  color: inherit !important;
+  font-family: inherit  !important;
+  font-size: inherit  !important;
+  font-weight: inherit !important;
+  box-shadow: unset !important;
+}
+
+thead{
+  visibility: collapse;
+}
+
+th{
+  color: white !important;
+  font-family: inherit  !important;
+  font-size: 16px  !important;
+  /* background-color: #2e2e2e !important; */
+  line-height: 0px !important;
+  height: 0px !important;
+  border:0px !important;
+}
+
+th.devices{
+  width:100%;
+}
+
+table{
+  background-color:transparent !important;
+}
+
+.mdl-data-table tbody tr.is-selected{
+  background: var(--bg-1);
+}
+
+.mdl-data-table tbody tr:hover {
+    background-color: var(--bg-1);
+}
+
+td > label > .mdl-checkbox__box-outline {
+    border: 2px solid var(--text-color);
+}
+
+th > label > .mdl-checkbox__box-outline {
+    border: 2px solid white;
+}
+
+.mdl-checkbox__ripple-container .mdl-ripple {
+    color:white;
+}
+
+label.is-checked > .mdl-checkbox__box-outline{
+  background: white;
+}
+
+</style>
+
+{% endblock %}

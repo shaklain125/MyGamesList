@@ -1,0 +1,1356 @@
+{% extends "gamesrec/base.html"  %}
+{% load static %}
+{% load media %}
+{% load custom_tags %}
+{% load crispy_forms_tags %}
+{% load crispy_forms_field %}
+
+{% block title %}
+
+{{title}}
+
+{% endblock %}
+
+{% block script %}
+
+<script>
+
+function load_list_updates(){
+  $.ajax({
+    url: `{% url 'gamesrec:recent_list_updates' %}`,
+    method: 'POST',
+    data: {
+      user: '{{user.username}}',
+      csrfmiddlewaretoken:`{{csrf_token}}`
+    },
+    success: function (data) {
+      $('#list_updates').html('')
+      if (!data['result']) {
+        return
+      }
+      for (var lu of data['result']) {
+        // console.log(lu.game.name, lu.status_val);
+        var t = `
+        <li id="lu-${lu.id}" class="lu_item list-item" data-id="${lu.game.id}">
+          <div class="list-left">
+            <canvas id="lu-cover-${lu.id}" width="300" height="422" style="width:50px; background-color:black;" data-src="${lu.game.cover}"></canvas>
+          </div>
+          <div class="list-body">
+            <div class="text-primary _600">
+              <a class="title" href="${lu.game.url}" title="${lu.game.name}">${lu.game.name}</a>
+              {% if user == request.user %}
+              <a class="btn btn-white simple btn-manage-list" id="lu-btn-edit-${lu.id}" data-id="28686"><span><i class="fas fa-pencil-alt"></i></span></a>
+              {% endif %}
+            </div>
+            <div class="activity">${lu.status_val}<div class="text-muted">${lu.timestamp}</div>
+            </div>
+          </div>
+        </li>`
+        $('#list_updates').append(t)
+      }
+      $('.lu_item').each(function(index, el) {
+        var canvas = $($(el).find('canvas')[0])
+        var id = canvas.attr('id')
+        var url = canvas.attr('data-src')
+        set_cover(`#${id}`,url, function () {
+          $(`#${id}`).addClass('animated fadeIn faster')
+        })
+
+        {% if user == request.user %}
+
+        var atl_modal = atl_edit()
+
+
+        if ($('#list_updates').data('u_l')) {
+          $('#list_updates').data('u_l').push(atl_modal)
+        }else {
+          $('#list_updates').data('u_l',[atl_modal])
+        }
+
+        // console.log($(el).attr('data-id'), url, $($(el).find('.title')[0]).html() ,`#${$($(el).find('.btn-manage-list')[0]).attr('id')}`, false);
+
+        atl_modal.on_submit = atl_modal.on_delete = function () {
+          // atl_modal.remove()
+          setTimeout(function () {
+            load_list_updates()
+          }, 1000);
+        }
+
+        atl_modal.init($(el).attr('data-id'), url, $($(el).find('.title')[0]).html() ,`#${$($(el).find('.btn-manage-list')[0]).attr('id')}`, false)
+        {% endif %}
+      });
+    }
+  })
+}
+
+$(document).ready(function() {
+  {% if profile_tab == None %}
+  load_list_updates()
+  {% endif %}
+  $.ajax({
+    url: `{% url 'gamesrec:last_online' %}`,
+    method: 'POST',
+    data: {user: '{{user.username}}','csrfmiddlewaretoken':`{{csrf_token}}`},
+    success: function (data) {
+      $('#last_online').html(data['last_online'])
+    }
+  })
+  {% if profile_tab == None %}
+  LoadCharts()
+  {% endif %}
+  {% if profile_tab == 'reviews' or  profile_tab == 'recs' %}
+  {% if request.user.is_authenticated and profile_tab == 'recs' %}
+  rec_like()
+
+  update_recsu_manage_list(`{% ids_recsu_all gs=recsu %}`)
+
+  init_recsu_manage_list(`{% ids_recsu_all gs=recsu %}`)
+  {% endif %}
+  $('#page-selection').twbsPagination({
+      totalPages: {{total_pages}},
+      startPage: {{page}},
+      pageVariable: 'page',
+      visiblePages: 5,
+      prev: '<i class="fas fa-angle-left"></i>',
+      next: '<i class="fas fa-angle-right"></i>',
+      first: '<i class="fas fa-angle-double-left"></i>',
+      last: '<i class="fas fa-angle-double-right"></i>',
+      href: true,
+      hideOnlyOnePage:true
+  })
+  $('.inner_text').each(function(index, el) {
+    if ($(el).height() >= 100) {
+      $($(el).closest('.review-body')).readMore({readMoreHeight:208})
+    }
+  });
+  $('.read-more__link').click(function () {
+    if ($(this).text() === 'Read less') {
+      $(this).css('position','unset')
+      $(this).css('margin','0')
+      // $(this).prev().find('.review-helpful').css('margin-top','0px')
+    }else{
+      $('html,body').animate({
+          scrollTop: $(this).offset().top-420
+        }, 0);
+      $(this).css('position','absolute')
+      $(this).css('margin-top','178px')
+      // $(this).prev().find('.review-helpful').attr('style',`margin-top:127px !important;`)
+    }
+  })
+
+  $('.review-cast-helpful').click(function(e) {
+    var $this = $(this)
+    $.ajax({
+      url: `{% url 'gamesrec:review_helpful' %}`,
+      method:'POST',
+      data: {'csrfmiddlewaretoken':`{{csrf_token}}`,'id':$this.attr('data-id'),'vote':$this.attr('data-label')},
+      success: function (data) {
+        var other_v = $this.parent().find('.review-cast-helpful')
+        other_v.hasClass('voted')? other_v.removeClass('voted') : null
+        if(data.result == 'success'){
+          if (data.type == 'add') {
+            !$this.hasClass('voted')? $this.addClass('voted') : null
+          }else{
+            $this.hasClass('voted')? $this.removeClass('voted') : null
+          }
+          Snackbar.show({
+            pos: 'bottom-left',
+            text:`${data.msg}`,
+            showAction:false,
+            // backgroundColor:'#388e3c',
+            duration:2000
+          });
+        }
+      },
+    })
+  });
+  {% endif %}
+
+  {% if request.user.is_authenticated and user == request.user and profile_tab == 'edit_review' %}
+
+  $('.dstar-wrapper').each(function(index, el){
+    s_rating(`#${$(el).attr('id')}`,true, $(el).attr(`data-value`))
+  })
+
+  $(`#id_completed_1`).on('change',function(){
+    if($(this).prop('checked')){
+      if(!$(`.dropped`).hasClass('d-none')){
+        $(`.dropped`).find('input').removeAttr('required')
+        $(`.dropped`).addClass('d-none')
+      }
+    }
+  })
+
+  if(!$(`#id_completed_1`).prop('checked') && $(`.dropped`).hasClass('d-none')){
+    $(`.dropped`).find('input').prop('required','True')
+    $(`.dropped`).removeClass('d-none')
+  }
+
+  $(`#id_completed_2`).on('change',function(){
+    if($(`.dropped`).hasClass('d-none')){
+      $(`.dropped`).find('input').prop('required','True')
+      $(`.dropped`).removeClass('d-none')
+    }
+  })
+
+  $('.clear_rating').on('click',function () {
+    $(this).closest('.dstar-wrapper').data('star').rating_set()
+  })
+
+  $(`#edit_review_frm`).on('submit', function(e){
+    e.preventDefault()
+    var json_ser = function(j){
+      var j_s = []
+      for(var k of Object.keys(j)){
+        j_s.push({name:k, value:j[k]})
+      }
+      return j_s
+    }
+
+    var rev_r = {}
+
+    $('.dstar-wrapper').each(function(index, el){
+      rev_r[$(el).attr('name')] = $(`#${$(el).attr('id')}`).data('star').rating()
+    })
+
+    var d = $(this).serializeArray()
+    $.ajax({
+      url: `{{review.edit_review_url}}`,
+      method:'POST',
+      data: d.concat(json_ser( Object.assign(rev_r,{'csrfmiddlewaretoken':`{{csrf_token}}`,'game':`{{review.game.id}}`}) )),
+      success: function (data) {
+        console.log(data)
+        window.location.href = `{{user.profile.reviews_url}}`
+      },
+    })
+  })
+
+  $('.rev_remove_btn').click(function(e) {
+    var cancel = false
+    var on_hidden = function () {
+      if (cancel) {
+        return
+      }
+      $.ajax({
+        url: `{% url 'gamesrec:remove_review' username=request.user.username %}`,
+        method:'POST',
+        data: {'csrfmiddlewaretoken':`{{csrf_token}}`,'id':{{review.pk}}},
+        success: function (data) {
+          if (data.result == 'success') {
+            window.location.href = data.redirect
+          }else{
+            toastr.clear()
+            toastr.error('Failed to remove the review','', {timeOut: 2000})
+          }
+        },
+      })
+    }
+    Snackbar.show({
+      pos: 'bottom-left',
+      text:'Review removed',
+      showAction:true,
+      actionText:'Undo',
+      duration:5000,
+      onActionClick: function (e) {
+        cancel=true
+        $(e).css('opacity', 0);
+        Snackbar.show({
+          pos: 'bottom-left',
+          text:`Cancelled`,
+          showAction:false,
+          duration:2000
+        });
+      },
+      onClose: function () {
+        // console.log('closed')
+        on_hidden()
+      }
+    });
+  });
+
+  {% endif %}
+
+  {% if request.user.is_authenticated and user == request.user and profile_tab == 'edit_rec' %}
+
+  $(`#edit_rec_form`).on('submit', function(e){
+    e.preventDefault()
+    var json_ser = function(j){
+      var j_s = []
+      for(var k of Object.keys(j)){
+        j_s.push({name:k, value:j[k]})
+      }
+      return j_s
+    }
+    var d = $(this).serializeArray()
+    $.ajax({
+      url: `{{review.edit_rec_url}}`,
+      method:'POST',
+      data:  d.concat(json_ser(Object.assign({'csrfmiddlewaretoken':`{{csrf_token}}`}))),
+      success: function (data) {
+        console.log(data)
+        window.location.href = `{{user.profile.recs_url}}`
+      },
+    })
+  })
+
+  $('.rec_remove_btn').click(function(e) {
+    var cancel = false
+    var on_hidden = function () {
+      if (cancel) {
+        return
+      }
+      $.ajax({
+        url: `{% url 'gamesrec:remove_rec' username=request.user.username %}`,
+        method:'POST',
+        data: {'csrfmiddlewaretoken':`{{csrf_token}}`,'id':{{rec.pk}}},
+        success: function (data) {
+          if (data.result == 'success') {
+            window.location.href = data.redirect
+          }else{
+            toastr.clear()
+            toastr.error('Failed to remove the recommendation','', {timeOut: 2000})
+          }
+        },
+      })
+    }
+    Snackbar.show({
+      pos: 'bottom-left',
+      text:'Recommendation removed',
+      showAction:true,
+      actionText:'Undo',
+      duration:5000,
+      onActionClick: function (e) {
+        cancel=true
+        $(e).css('opacity', 0);
+        Snackbar.show({
+          pos: 'bottom-left',
+          text:`Cancelled`,
+          showAction:false,
+          duration:2000
+        });
+      },
+      onClose: function () {
+        // console.log('closed')
+        on_hidden()
+      }
+    });
+  });
+
+  {% endif %}
+
+  {% if request.user.is_authenticated and request.user == user and profile_tab == 'history' %}
+  $('.history_ul li').on('click',function () {
+    $('.h_opt_radio').html('radio_button_unchecked')
+    $(this).find('.h_opt_radio').html('radio_button_checked')
+  })
+  {% endif %}
+
+});
+
+function LoadCharts() {
+
+  $.ajax({
+    url: `{% url 'gamesrec:get_lists_count' %}`,
+    method: 'POST',
+    data: {user: '{{user.username}}','csrfmiddlewaretoken':`{{csrf_token}}`},
+    success: function (data) {
+      var ks = []
+      var vs = []
+      for (var l of data['lists']) {
+        var k = Object.keys(l)[0]
+        var val = l[k]
+        ks.push(unslugify(k))
+        vs.push(val)
+      }
+      var s = vs[1]+vs[3]+vs[4]
+      $('.all_time_g_summary').html(`${s?s:0} Game${s > 1 || s < 1? 's': ''}`)
+      var ctxR = document.getElementById("radarChart").getContext('2d');
+      var myRadarChart = new Chart(ctxR, {
+        type: 'radar',
+        data: {
+          labels: ks,
+          backgroundColor: ['#000'],
+          datasets: [{
+            label: 'Games',
+            fillColor: "rgba(108, 199, 136, 0.2)",
+            strokeColor: "#6cc788",
+            pointColor: "#6cc788",
+            pointStrokeColor: "#fff",
+            pointHighlightFill: "#fff",
+            pointHighlightStroke: "#6cc788",
+            data: vs,
+            backgroundColor: [
+            'rgba(58, 23, 90, .4)',
+            ],
+            borderColor: [
+            'rgba(200, 99, 132, .7)',
+            ],
+            borderWidth: 3,
+            fill:true,
+          }]
+        },
+        options: {
+          // hover:{
+          //   onHover:function (e) {
+          //     console.log(e)
+          //   }
+          // },
+          elements:{
+            point:{
+              radius: 3,
+              pointStyle: "circle",
+              backgroundColor: "rgb(58, 23, 90)",
+              borderColor: "#fff",
+              borderWidth: 1,
+              hitRadius: 1,
+              hoverRadius: 4,
+              hoverBorderWidth: 1,
+            }
+          },
+          responsive: true,
+          legend: {
+              display: false,
+          },
+          scale: {
+             ticks: {
+                display: false
+
+             },
+             angleLines: { color: 'rgba(75, 81, 93, .3)' },
+             gridLines: { color: 'rgba(75, 81, 93, .3)' }
+          }
+        }
+      });
+
+      var ctxB = $('#barChart')[0].getContext('2d');
+      var myBarChart = new Chart(ctxB, {
+        type: 'bar',
+        data: {
+          labels: ks,
+          datasets: [{
+            label: 'Games',
+            data: vs,
+            backgroundColor: [
+            'rgba(255, 99, 132, 0.2)',
+            'rgba(54, 162, 235, 0.2)',
+            'rgba(255, 206, 86, 0.2)',
+            'rgba(75, 192, 192, 0.2)',
+            'rgba(153, 102, 255, 0.2)',
+            'rgba(255, 159, 64, 0.2)'
+            ],
+            borderColor: [
+            'rgba(255,99,132,1)',
+            'rgba(54, 162, 235, 1)',
+            'rgba(255, 206, 86, 1)',
+            'rgba(75, 192, 192, 1)',
+            'rgba(153, 102, 255, 1)',
+            'rgba(255, 159, 64, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            yAxes: [{
+              ticks: {
+                beginAtZero: true,
+                step_size:1
+              },
+            }],
+            xAxes: [{
+              barPercentage: 0.4,
+              gridLines: {
+                display:false
+              }
+            }]
+          },
+          legend: {
+              display: false,
+          }
+        }
+      });
+
+    }
+  })
+
+}
+
+
+</script>
+
+{% endblock  %}
+
+{% block content %}
+
+<div class="row mb-5">
+  {% if profile_tab != 'history' and profile_tab != 'edit_rec' and profile_tab != 'edit_review'  %}
+  <div class="col-lg-4 col-md-4">
+    <div class="content-side hidden-sm-down">
+      <div class="box box-user-profile show-only-lg-profile">
+        <div class="box-body text-center">
+          {# {% url 'gamesrec:letter_size' name=request.user.username size=300 %} #}
+          <div class="mb"><img class="img-responsive" width="296" src="{{picture_300}}"></div>
+          <a class="btn btn-white btn-block" href="{{user.profile.gameslist_url}}"><i class="fa fa-list-ul"></i> {{user.username}}'s List</a>
+        </div>
+      </div>
+      <div class="box clear">
+        <div class="box-header primary">
+          <h3>Details</h3>
+        </div>
+        <div class="box-body light-b">
+          <ul class="list mb-0">
+            {% comment %}{{l_online|pretty_dt}}{% endcomment %}
+            <li class="list-item p-0"><b class="inline">Last Online:</b> <span id="last_online"></span></li>
+            {# <li class="list-item p-0"><b class="inline">Last login:</b> {{user.last_login|pretty_dt}}</li> #}
+            <li class="list-item p-0"><b class="inline">Gender: </b>{% if user.gender == 0 %}Not specified {% else %}{{user.get_gender_display}}{% endif %}</li>
+            {% if not user.profile.dob_privacy %}<li class="list-item p-0"><b class="inline">Birthday: </b>{% dob_date_year_only %}</li>{% endif %}
+            {# <li class="list-item p-0"><b class="inline">Total Edits:</b> 0 <span class="text-info m-lsm"><small class="text-mutedx" style="font-size: 3px;">LV</small>0</span></li> #}
+            <li class="list-item p-0"><b class="inline">Roles:</b> <label class="role" style="border-color:#99AAB5;color:#99AAB5;background-color:rgba(153,170,181,0.1)">Member</label>
+            </li>
+            <li class="list-item p-0"><b class="inline">Join Date:</b> {{user.joined.timestamp|shortMonthDateFormat_epoch}}</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  {% endif %}
+  <div class="{% if profile_tab == 'history' or profile_tab == 'edit_rec' or profile_tab == 'edit_review' %}col-12{% else %}col-lg-8 col-md-8{% endif %}">
+    <div class="box">
+      <div class="box-header box-navbar">
+        <div class="profile-header">
+          <div class="row no-gutter show-only-mobile-profile">
+            <div class="col-xs-2 col-sm-1 m-r-md">
+              <div class="avatar w-64 m-t-sm"><img class="w-64" src="{{picture}}"></div>
+            </div>
+            <div class="col-xs-8 col-sm-8">
+              <h1>{{user.profile.display_name}}</h1> <small></small>
+            </div>
+          </div>
+          <div class="hidden-sm-down show-only-lg-profile">
+            <h1>{{user.profile.display_name}}</h1> <small></small>
+          </div>
+        </div>
+        <div class="box-tool dropdown"> </div>
+        <ul class="nav nav-tabs">
+          <li class="page-item nav-item {% if profile_tab == None %}active{% endif %}"><a class="nav-link" href="{{user.profile.url}}">Profile</a></li>
+          <li class="page-item nav-item {% if profile_tab == 'reviews'%}active{% endif %}"><a class="nav-link" href="{{user.profile.reviews_url}}">Reviews</a></li>
+          <li class="page-item nav-item {% if profile_tab == 'recs'%}active{% endif %}"><a class="nav-link" href="{{user.profile.recs_url}}">Recs</a></li>
+          <!-- <li class="page-item nav-item {% if profile_tab == 'lists'%}active{% endif %}"><a  href="{{user.profile.gameslist_url}}" class="nav-link">Lists</a></li> -->
+          <li class="page-item nav-item {% if profile_tab == 'stats'%}active{% endif %}"><a class="nav-link" href="{{user.profile.stats_url}}">Stats</a></li>
+          <li class="page-item nav-item {% if profile_tab == 'history'%}active{% endif %}"><a class="nav-link" href="{{user.profile.history_url}}">History</a></li>
+          <li class="page-item nav-item show-only-mobile-2"><a class="nav-link" href="{{user.profile.gameslist_url}}">My Games List</a></li>
+        </ul>
+      </div>
+      <!-- <div class="box-body html_content_block" style="-webkit-transform: translate3d(0,0,0);transform: translate3d(0,0,0);overflow: hidden;">
+      </div> -->
+      {% if profile_tab == 'stats' %}
+
+      <div class="box-body" style="min-height: 50vh;">
+      <div class="row">
+        {% if stats and stats.genres %}
+        <div class="col-sm-6 pt-4">
+          <h6>Genres</h6>
+          <div class="breakdown-graph">
+            {% for st in stats.genres %}
+            <div class="breakdown-item breakdown-item-tag"><a href="{% url 'gamesrec:search' %}?{{st.qpath}}" title="{{st.name}}">{{st.name}}</a>
+              <div class="breakdown-item-value">
+                <div class="breakdown-item-bar" style="background-color: rgb(43, 139, 236); width: {{st.percent}};"><span>{{st.count}}</span></div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if stats and stats.genres %}
+        <div class="col-sm-6 pt-4">
+          <h6>Themes</h6>
+          <div class="breakdown-graph">
+            {% for st in stats.themes %}
+            <div class="breakdown-item breakdown-item-tag"><a href="{% url 'gamesrec:search' %}?{{st.qpath}}" title="{{st.name}}">{{st.name}}</a>
+              <div class="breakdown-item-value">
+                <div class="breakdown-item-bar" style="background-color: rgb(95, 185, 93); width: {{st.percent}};"><span>{{st.count}}</span></div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      </div>
+
+      {% elif profile_tab == 'reviews' %}
+      <div style="min-height: 50vh;">
+        <div>
+          <div class="box-header">
+            <div style="display: block;overflow: hidden;">
+              <select class="browser-default custom-select" style="width:138px;" onchange="window.location.href = this.value ">
+                <option value="{{sort_link}}helpful" {% if sort == 'helpful' %}selected{% endif %}>Most helpful</option>
+                <option value="{{sort_link}}recent" {% if sort == 'recent' %}selected{% endif %}>Most recent</option>
+              </select>
+            </div>
+          </div>
+          {% for review in reviews %}
+          <div id="review-{{review.id}}" class="review mb-4" data-stats="reviews:27730">
+            <div class="box-body light b-t b-b p-t-sm p-b-sm">
+              <div class="row no-gutter">
+                <div class="col-sm-9">
+                  <div class="float-left m-r">
+                    <span>
+                      <img width="84" src="{{review.game.cover}}">
+                    </span>
+                  </div>
+                  <div>
+
+                    <div class="float-right show-only-mobile-3">
+                      {% if review.completed %}
+                        <span class="review-tag completed">Completed</span>
+                      {% else %}
+                        {% if review.dropped %}
+                        <span class="review-tag dropped">Dropped</span>
+                        {% else %}
+                        <span class="review-tag played">Played</span>
+                        {% endif %}
+                      {% endif %}
+                    </div>
+
+                    <b><a class="text-primary font-weight-bold" href="{{review.game.url}}">{{review.game.title}}</a></b>
+
+                    <div class="user-stats review_stats_{{review.id}}"><small><b>{{review.helpful_users.count}}</b> people found this review helpful</small>
+                      <i class="review-voted-check review-voted-check-{{review.id}}"></i>
+                    </div>
+
+                    <div class="author"><small>by <a class="text-primary" href="{{review.user.profile.url}}">{{review.user.username}}</a></small></div>
+
+                    <div class="more-reviews"> <small><a class="text-primary" href="{{review.user.profile.reviews_url}}">Other reviews by this user</a></small>
+                    </div>
+
+                    {% if request.user.is_authenticated and user == request.user %}
+
+                    <div class="edit_review"><small><a class="btn btn-xs btn-secondary mt-2" href="{{review.edit_review_url}}">Edit Review</a></small></div>
+
+                    {% endif %}
+
+                  </div>
+                </div>
+                <div class="col-sm-3 text-sm text-right show-only-lg-3">
+                  <div class="meta"> <small class="datetime">{{review.timestamp.date}}</small>
+                  </div>
+                  <div class="actions">
+                    {% if review.completed %}
+                      <span class="review-tag completed">Completed</span>
+                    {% else %}
+                      {% if review.dropped %}
+                      <span class="review-tag dropped">Dropped</span>
+                      {% else %}
+                      <span class="review-tag played">Played</span>
+                      {% endif %}
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="box-body">
+              <div class="row">
+                <div class="col-sm-12 review-body" style="height:208px; overflow:hidden;">
+                  <div class="box pull-right text-sm m-a-sm">
+                    <div class="box-header p-t-sm p-b-sm rating-overall"> <b>{{review.r.4.name}} <span class="score pull-right">{{review.ratings_list.4}}</span></b> </div>
+                    <div class="box-body p-t-sm p-b-sm">
+                      <div class="list-group review-rating">
+                        <div>{{review.r.0.name}} <span class="p-l-md pull-right">{{review.ratings_list.0}}</span></div>
+                        <div>{{review.r.1.name}} <span class="p-l-md pull-right">{{review.ratings_list.1}}</span></div>
+                        <div>{{review.r.2.name}} <span class="p-l-md pull-right">{{review.ratings_list.2}}</span></div>
+                        <div>{{review.r.3.name}} <span class="p-l-md pull-right">{{review.ratings_list.3}}</span></div>
+                      </div>
+                    </div>
+                  </div>
+                  {% if review.spoiler %}
+                  <div class="review-spoiler">This review may contain spoilers</div>
+                  {% endif %}
+                  <span class="review_text">
+                    <div class="inner_text">
+                      {% autoescape on %}
+                      {{review.review_text|linebreaks}}
+                      {% endautoescape %}
+                    </div>
+                  </span>
+                  {% if request.user.is_authenticated %}
+                  <div class="review-helpful m-t p-t xb-t mt-5 mb-3"> <!-- style="margin-top:127px !important;" -->
+                    <div class="review-vote review-helpful-{{review.pk}}">
+                      <span class="text-muted">Was this review helpful to you?</span>
+                      <button class="btn btn-xs btn-white light helpful review-cast-helpful {% if request.user in review.helpful_users.all %}voted{% endif %}" data-id="{{review.pk}}" data-label="Yes"><span>Yes</span></button>
+                      <button class="btn btn-xs btn-white light unhelpful review-cast-helpful {% if request.user in review.not_helpful_users.all %}voted{% endif %}" data-id="{{review.pk}}" data-label="No"><span>No</span></button>
+                    </div>
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="box-footer">
+        <nav>
+          <ul id="page-selection" class="pagination pg-blue"></ul>
+        </nav>
+      </div>
+      {% elif request.user.is_authenticated and profile_tab == 'edit_review' %}
+      <div style="min-height: 50vh;">
+        <form id="edit_review_frm">
+          <div class="edit_review_wrapper">
+
+            <div class="box-body pl-0 pr-0">
+              <div class="mt-3 mb-5" style="margin-left:16px;">
+                <span>
+                  <span class="font-weight:normal;">Edit review for </span><a style="font-style:italic;font-weight:900;" href="{{review.game.url}}">'{{review.game.title}}'</a>
+                </span>
+              </div>
+              <div class="row m-b m-t">
+                <div class="col-lg-4 col-md-4 guildline b-r">
+                  <h6 class="header m-b">Step 1: Read Guidelines</h6>
+                  <ul class="guildline">
+                    <li class="p-b">Write your own reviews!</li>
+                    <li class="p-b">Don't include story summaries as users have already read the plot summary.</li>
+                    <li class="p-b">Write <b>why</b> you liked or disliked.</li>
+                    <li class="p-b">Do <b>not</b> post major spoilers as you'll just ruin the show for the readers who are thinking about watching the show.</li>
+                    <li class="p-b">Do <b>not</b> add spoilers to the headline!</li>
+                  </ul>
+                </div>
+                <div class="col-lg-8 col-md-8 your-rating">
+                  <h6 class="header m-b">Step 2: Ratings</h6>
+                  <ul class="list">
+                    {% for rev_rating in review_rating_ids_names_values %}
+                    <li class="list-item p-a-sm mb-4">
+                      <div class="row">
+                        <div class="col-lg-4" style="display: flex !important;">
+                          <b title="{{rev_rating.name}}" style="width: 100%;text-overflow: ellipsis;word-break: break-all;overflow: hidden;">{{rev_rating.name}}</b>
+                        </div>
+                        <div class="col-lg-8">
+                          <div id="{{rev_rating.id}}" name="{{rev_rating.h_name}}" class="m-t-xs dstar-wrapper" data-value="{{rev_rating.value}}">
+                            <div class="dstar-rating">
+                              <div class="dstar-fill" style="width: {{rev_rating.star}}%;"></div>
+                            </div>
+                            <div class="dstar-right">
+                              <strong>{{rev_rating.value}}</strong>/10
+                              <a class="btn btn-xs btn-white mt-2 ml-2 float-right clear_rating">clear</a>
+                            </div>
+                            <div class="dstar-prev" style="display: none;"><span></span></div>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="box-body pl-4 pr-4">
+            <h6 class="header m-b">Step 3: Write Your Review</h6>
+            <div class="form-group">
+              <div class="row">
+                <div class="col-sm-3"><label>Does this review contain spoilers?</label></div>
+                <div class="col-sm-9">
+                  {{review_form.spoiler|as_crispy_field}}
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="row">
+                <div class="col-sm-3"><label>Have you finished playing this game?</label></div>
+                <div class="col-sm-9">
+                  {{review_form.completed|as_crispy_field}}
+                </div>
+              </div>
+              <div class="form-group-child ml-5 pt-3 light dropped d-none">
+                <div class="form-group">
+                  <div class="row">
+                    <div class="col-sm-3"><label>Are you dropping this game?</label></div>
+                    <div class="col-sm-9">
+                      {{review_form.dropped|as_crispy_field}}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="row">
+                <div class="col-sm-3"><label>Write Your Review</label></div>
+                <div class="col-sm-9">
+                  <div class="el-textarea">
+                    {% crispy_field review_form.review_text %}
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div>
+
+            <div class="box-footer" style="overflow: hidden;">
+              <button type="submit" class="btn btn-primary float-left"><span>Submit</span></button>
+              <button type="button" class="btn btn-danger float-right rev_remove_btn"><span>Remove</span></button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      {% elif profile_tab == 'recs' %}
+
+      <div style="min-height: 50vh;">
+        <div>
+          {% for rec in recsu %}
+          <div id="rec-{{rec.pk}}" class="box-body mb-4">
+            <div class="row">
+              <div class="col-6">
+                <div class="row mdl-18894">
+                  <div class="col-xs-12 col-sm-4 col-lg-4">
+                    <img src="{{rec.game.cover}}" id="recs_cover_{{rec.game.pk}}" class="img-responsive">
+                  </div>
+                  <div class="col-sm-8">
+                    <div>If you liked</div>
+                    <div class="rec-title"><b><a class="text-primary" href="{{rec.game.url}}"  id="recs_title_{{rec.game.pk}}">{{rec.game.title}}</a></b></div>
+                    <div>
+                      <a class="btn btn-xs btn-white recs_manage_list" data-id="{{rec.game.pk}}" data-gid="{{rec.game.pk}}" id="recs_manage_list-{{rec.game.pk}}"><span><i class="fas fa-plus"></i></span></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="row mdl-17213">
+                  <div class="col-xs-12 col-sm-4 col-lg-4">
+                    <img src="{{rec.similar_game.cover}}" id="recs_cover_{{rec.similar_game.pk}}" class="img-responsive">
+                  </div>
+                  <div class="col-sm-8">
+                    <div>...then you might like</div>
+                    <div class="rec-title"><b><a class="text-primary" href="{{rec.similar_game.url}}" id="recs_title_{{rec.similar_game.pk}}">{{rec.similar_game.title}}</a></b></div>
+                    <div>
+                      <a class="btn btn-xs btn-white recs_manage_list" data-id="{{rec.similar_game.pk}}" data-gid="{{rec.similar_game.pk}}" id="recs_manage_list-{{rec.similar_game.pk}}"><span><i class="fas fa-plus"></i></span></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-sm-12">
+                <div class="recs-body m-t">
+                  {% if request.user.is_authenticated and user == request.user %}
+                  <div class="row d-block m-0 mb-4">
+                    <div class="float-right">
+                      <small><a class="btn btn-xs btn-secondary mt-2 waves-effect waves-light" href="{{rec.edit_rec_url}}"><span><i class="fal fa-edit"></i></span> Edit Recommendation</a></small>
+                    </div>
+                  </div>
+                  {% endif %}
+                  <div>
+                    {% autoescape on %}
+                    {{rec.rec_text|linebreaks}}
+                    {% endautoescape %}
+                  </div>
+                  <div class="recs-by">
+                    <span class="jbtn-like" data-id="{{rec.pk}}" data-type="rec"><span class="like-cnt">{{rec.likes.count}}</span></span>
+                    <span>Recommended by <a class="text-primary" href="{{rec.user.profile.url}}">{{rec.user.username}}</a></span>
+                    <span class="text-muted">- {{rec.timestamp.timestamp|shortMonthDateFormat_epoch}}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="box-footer">
+        <nav>
+          <ul id="page-selection" class="pagination pg-blue"></ul>
+        </nav>
+      </div>
+
+      {% elif request.user.is_authenticated and profile_tab == 'edit_rec' %}
+
+      <div style="min-height: 50vh;">
+        <form id="edit_rec_form">
+          <div class="box-body">
+            <div class="row">
+              <div class="col-6">
+                <div class="row mdl-18894">
+                  <div class="col-xs-12 col-sm-4 col-lg-4">
+                    <img src="{{rec.game.cover}}" id="recs_cover_{{rec.game.pk}}" class="img-responsive">
+                  </div>
+                  <div class="col-sm-8">
+                    <div>If you liked</div>
+                    <div class="rec-title"><b><a class="text-primary" href="{{rec.game.url}}" target="_blank"  id="recs_title_{{rec.game.pk}}">{{rec.game.title}}</a></b></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="row mdl-17213">
+                  <div class="col-xs-12 col-sm-4 col-lg-4">
+                    <img src="{{rec.similar_game.cover}}" id="recs_cover_{{rec.similar_game.pk}}" class="img-responsive">
+                  </div>
+                  <div class="col-sm-8">
+                    <div>...then you might like</div>
+                    <div class="rec-title"><b><a class="text-primary" href="{{rec.similar_game.url}}" target="_blank" id="recs_title_{{rec.similar_game.pk}}">{{rec.similar_game.title}}</a></b></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-5">
+              <div class="form-label"><label>How is <b>{{rec.game.title}}</b> similar to <b><span class="sel_game_title">{{rec.similar_game.title}}</span></b>?</label></div>
+              <div class="form-group">
+                <div class="el-textarea">
+                  {% crispy_field rec_form.rec_text %}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="box-footer" style="overflow: hidden;">
+            <button type="submit" class="btn btn-primary float-left"><span>Submit</span></button>
+            <button type="button" class="btn btn-danger float-right rec_remove_btn"><span>Remove</span></button>
+          </div>
+
+        </form>
+
+      </div>
+
+      {% endif %}
+
+      {% if request.user.is_authenticated and request.user == user and profile_tab == 'history'  %}
+          <div style="min-height: 100vh;">
+            <div class="">
+              <historyOptions class="d-block col-sm-12 col-md-3 float-right pl-0 pr-0">
+                <h6 class="p-3">History Type</h6>
+                <div>
+                  <ul class="demo-list-icon mdl-list history_ul">
+                    <li class="mdl-list__item">
+                      <span class="mdl-list__item-primary-content">
+                        Comments
+                      </span>
+                      <span class="material-icons h_opt_radio" style="font-size:14px">radio_button_checked</span>
+                    </li>
+                    <div class="divider_no_margin"></div>
+                    <!-- <li class="mdl-list__item">
+                      <span class="mdl-list__item-primary-content">
+                        Game Pages
+                      </span>
+                      <span class="material-icons h_opt_radio" style="font-size:14px">radio_button_unchecked</span>
+                    </li> -->
+                  </ul>
+                </div>
+              </historyOptions>
+              <commentsHistory class="d-block col-sm-12 col-md-8 p-0 float-left">
+                <div class="box pt-3 pl-3 pb-0">
+                  <h5>Comments</h5>
+                </div>
+                {% include "gamesrec/components/_h_comments.html" %}
+              </commentsHistory>
+            </div>
+        </div>
+      {% else %}
+        {% if  profile_tab == 'history' %}
+          <div class="text-center" style="min-height: 50vh;">
+            <span><i class="fas fa-lock-alt mr-2"></i> Only {{user.username}} can view history</span>
+          </div>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    {% if profile_tab == None %}
+    <div class="row stats-section">
+
+
+      <div class="col-sm-6">
+        <div class="box statsBlock titleStats left">
+
+          <div class="box-header b-b">
+            <h3>Statistics</h3>
+          </div>
+
+          <div class="b-b light text-center">
+            <div class="clear">
+              <div class="col-sm-6x b-t" style="padding: 15px 0;">
+                <div class="text-xs"><b>ALL TIME</b></div>
+                <div class="text-muted all_time_g_summary"></div>
+              </div>
+            </div>
+          </div>
+
+          <canvas id="radarChart" class="profile_chart" width="307" height="257"></canvas>
+
+          <canvas id="barChart" class="profile_chart mt-5" width="307" height="235"></canvas>
+
+        </div>
+
+      </div>
+
+
+
+
+
+
+
+
+
+      <div class="col-sm-6">
+
+        <div class="box statsBlock listUpdatesBlock">
+          <div class="box-header b-b">
+            <h3>List Updates</h3>
+          </div>
+          <ul id="list_updates" class="list top-list">
+          </ul>
+        </div>
+
+      </div>
+
+    </div>
+
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{% block css %}
+
+<style>
+
+  .divider_no_margin {
+      background-color: rgba(120,130,140,.13) !important;
+      border-top: unset !important;
+  }
+
+  .divider_no_margin {
+      height: 1px;
+      margin: 0;
+      overflow: hidden;
+  }
+
+  @media (min-width:768px) {
+    historyOptions{
+      min-height:50vh;
+    }
+  }
+
+  historyOptions{
+    height:unset;
+  }
+
+  .history_ul{
+    background: var(--bg-1);
+  }
+
+  .history_ul > li{
+    color:var(--text-color);
+  }
+
+  .history_ul > li:hover{
+    cursor:pointer;
+  }
+
+
+
+
+  .voted{
+    border: 1px solid #92d07a !important;
+    color: #71c151;
+  }
+
+  .voted:hover{
+    border: 1px solid #92d07a !important;
+    color: #71c151;
+  }
+
+  /* EDit Review */
+
+  .dstar-rating.dstar-small:before {
+      font-size: 20px;
+  }
+
+  .dstar-small .dstar-rating .dstar-fill:before{
+    font-size: 20px;
+  }
+
+   .p-a-sm {
+       padding: .5rem!important;
+   }
+   .m-b, .m-y {
+     margin-bottom: 16px!important;
+   }
+
+   .m-t, .m-y {
+       margin-top: 16px!important;
+   }
+
+   .edit_review_wrapper .row{
+     margin-left: 0px !important;
+   }
+
+   .edit_review_wrapper .form-check{
+     display: inline-block !important;
+     margin-left: 2.5rem;
+   }
+
+   /* end of EDit review */
+
+  .read-more__link {
+      font-weight: bolder;
+      color:var(--link-color)!important;
+      letter-spacing: 1px;
+      font-size: 14px;
+      text-transform: capitalize;
+      cursor: pointer;
+      margin-left:16px;
+      width: 100%;
+      text-align: left;
+      margin: 0;
+      padding: 20px 0 0 16px;
+      background-size: 100%;
+      background-image: var(--grad1);
+      position: absolute;
+      margin-top: 178px;
+  }
+
+  .list-left+.list-body {
+      margin-left: 50px;
+  }
+
+  .btn-manage-list.simple {
+      color: #1675b6!important;
+      font-size: 75%;
+      font-weight: 400;
+      padding: .25em .4em;
+      border-radius: 3px;
+      line-height: 11px;
+      display: inline-block;
+      border: 1px solid rgba(2,117,216,.17);
+      min-width: 32px;
+  }
+
+  .b-b {
+      border-bottom: 1px solid rgba(120,130,140,.13);
+  }
+
+  @media (max-width: 990px)
+  {
+    .stats-section [class*=col-] {
+        padding-left: 3px;
+        padding-right: 3px;
+    }
+  }
+
+  @media (min-width: 576px)
+  {
+    .stats-section {
+      padding-left: 7px;
+      padding-right: 7px;
+    }
+    .stats-section [class*=col-] {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+  }
+
+  @media (max-width: 575px)
+  {
+    .stats-section {
+      padding-left: 0px;
+      padding-right: 0px;
+    }
+    .stats-section [class*=col-] {
+        padding-left: 0px;
+        padding-right: 0px;
+    }
+    .profile_chart{
+      padding: 20px !important;
+    }
+  }
+
+  #radarChart{
+    padding:.25rem;
+    margin-top: 16px;
+  }
+
+
+
+  @media (max-width: 61.9em)
+  {
+  .stats-section {
+      margin-left: -8px;
+      margin-right: -8px;
+  }
+  }
+
+  @media (max-width: 61.9em)
+  {
+    .box, .box-color, .margin {
+        margin-bottom: 1rem;
+    }
+  }
+
+  @media (max-width: 61.9em)
+  {
+    .box, .box-color, .margin {
+        margin-bottom: 1rem;
+    }
+  }
+
+  .box {
+      /* box-shadow: rgba(0,0,0,.1) 0 1px 1px; */
+      border-radius: 4px;
+  }
+  .box, .box-color {
+      position: relative;
+      margin-bottom: 1.5rem;
+  }
+
+  .mb {
+      margin-bottom: 16px!important;
+  }
+
+
+  .show-only-lg-profile {
+    display: none !important;
+  }
+
+
+  @media (min-width:768px) {
+    .show-only-mobile-profile {
+      display: none !important;
+    }
+    .show-only-lg-profile {
+      display: block !important;
+    }
+  }
+
+  .row.no-gutter [class*=col-] {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .w-64 {
+      width: 64px;
+  }
+
+  .m-t-sm, .m-y-sm {
+      margin-top: .5rem!important;
+  }
+  .profile-header .avatar {
+      position: relative;
+      display: inline-block;
+      line-height: 1;
+      font-weight: 700;
+  }
+
+.row.no-gutter {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.m-r-md, .m-x-md {
+    margin-right: 24px!important;
+}
+
+ .col-xs-8, .col-sm-8{
+    position: relative;
+    min-height: 1px;
+  }
+  .col-xs-2 {
+    float: left;
+    width: 16.66667%;
+}
+
+  .box-navbar {
+    padding-bottom: 0;
+    padding-top: 0;
+    margin-bottom: .7rem;
+  }
+
+  .m-t-sm, .m-y-sm {
+    margin-top: .5rem!important;
+}
+
+.profile-header{
+  margin-top: 10px;
+}
+
+.profile-header .row{
+  flex-wrap: unset !important;
+}
+
+
+.profile-header .row::after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+/*STATS TAB*/
+
+.breakdown-item {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    padding: 3px 0;
+}
+.breakdown-item a {
+    width: 110px;
+    font-weight: 700;
+    padding-right: 10px;
+}
+
+.breakdown-item-tag a {
+    width: 146px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.breakdown-item a {
+    width: 110px;
+    font-weight: normal;
+    padding-right: 10px;
+}
+
+.breakdown-item-value {
+    -webkit-box-flex: 1;
+    -ms-flex: 1;
+    flex: 1;
+}
+
+.breakdown-item-bar {
+    height: 22px;
+    min-width: 26px;
+    border-radius: 2px;
+    position: relative;
+}
+
+.breakdown-item-bar span {
+    color: #fff;
+    white-space: nowrap;
+    padding: 0 5px;
+}
+
+</style>
+
+{% endblock %}

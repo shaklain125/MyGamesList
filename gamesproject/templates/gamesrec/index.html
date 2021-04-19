@@ -1,0 +1,796 @@
+{% extends "gamesrec/base.html" %}
+{% load static %}
+{% load custom_tags %}
+
+<html>
+
+{% block title %}
+Organize, Review, Discover Games
+{% endblock %}
+
+
+{% block css %}
+<style>
+
+.swiper-wrapper {
+    padding: 0;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-transition-property: -webkit-transform;
+    -moz-transition-property: -moz-transform;
+    -o-transition-property: -o-transform;
+    -ms-transition-property: -ms-transform;
+    transition-property: transform;
+    -webkit-box-sizing: content-box;
+    -moz-box-sizing: content-box;
+    box-sizing: content-box;
+}
+
+.rec-slide{
+  /* Center slide text vertically */
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-pack: center;
+  -ms-flex-pack: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+}
+
+.swiper-pagination-bullet {
+      width: 20px;
+      height: 20px;
+      text-align: center;
+      line-height: 20px;
+      font-size: 12px;
+      color:white;
+      opacity: 1;
+      background: rgba(0,0,0,0.2);
+    }
+    .swiper-pagination-bullet-active {
+      color:#fff;
+      background: #007aff;
+    }
+
+    .divider {
+        background-color: rgba(120,130,140,.13) !important;
+        border-top: unset !important;
+    }
+
+    .divider {
+        height: 1px;
+        margin: .5rem 0;
+        overflow: hidden;
+    }
+
+
+</style>
+{% endblock %}
+
+{% block script %}
+
+<script>
+
+function swiper_init(selector) {
+  var conf = {
+    hashNavigation: false,
+    navigation: {
+      nextEl: '.swiper-button-next',
+      prevEl: '.swiper-button-prev',
+    }
+  }
+  var min_point = {
+    slidesPerView: 1,
+    slidesPerGroup: 1,
+    spaceBetween: 10,
+    preloadImages: false,
+    lazy:{
+      loadPrevNext:true,
+      loadPrevNextAmount: 1,
+    }
+  }
+
+  conf = Object.assign(conf, min_point)
+
+  var breakpoints = {}
+  var slide_no = [2,3,4,4]
+  var b = [360,640,768,1024]
+  for (var i = 0; i < b.length; i++) {
+    var brk = dict.copy(min_point)
+    dict.setAll(brk,{
+      slidesPerView: slide_no[i],
+      slidesPerGroup: slide_no[i]
+    })
+    dict.setChild(brk,['lazy','loadPrevNextAmount'],slide_no[i])
+    breakpoints[b[i]] = brk
+  }
+  conf['breakpoints'] = breakpoints
+  // console.log(conf);
+  var sw = new Swiper (selector, conf)
+  $(selector).data('swiper',sw)
+  return sw
+}
+
+var latest_g = [];
+var latest_done = {};
+var latest_count = 0;
+var lat_done = false;
+var latestswiper = null;
+
+
+async function Load_Latest() {
+
+  $.ajax({
+    url: "{% url 'gamesrec:get_latest' %}",
+    method: 'GET',
+    async: true,
+    beforeSend: function() {
+      set_spinner({id:'latest-spinner', classes:'animated fadeIn faster'},'#latest-parent')
+    },
+    success: async function (data) {
+      prefetch_urls()
+      latestswiper = swiper_init('#latest-parent')
+      console.log(data.games);
+      for (var g in data.games) {
+        g = data.games[g];
+        var cover = g['cover']
+        // <img id="latest-cover-${g['id']}" class="latest-cover img-responsive mx-auto d-block my-auto swiper-lazy" src="{% static '/gamesrec/blank_300x422.png'%}" data-src="${cover}" alt="${g['name']}">
+        var val = `<div id="latest-${g['id']}" class="swiper-slide">
+          <a class="game-cover d-block" href="${g['url']}" data-toggle="tooltip" title="${g['name']}" style="overflow: hidden;background-color: #000;">
+            <canvas id="latest-cover-${g['id']}" class="latest-cover img-responsive mx-auto d-block my-auto swiper-lazy" width="300" height="422" alt="${g['name']}"></canvas>
+          </a>
+          <a class="d-block text-truncate text-left mt-2 ml-1" style="max-width: 100%;" href="${g['url']}">
+            <span id="released-${g['id']}">${epoch_to_datestr(g['first_release_date'])}</span>
+            <span class="game-title font-weight-bold text-primary" data-toggle="tooltip" title="${g['name']}" style="font-size: 14px;">${g['name']}</span>
+          </a>
+          <div class="swiper-lazy-preloader swiper-lazy-preloader-white"></div>
+        </div>`
+        $('#latest').append(val)
+        set_cover(`#latest-cover-${g['id']}`,cover)
+        // <canvas id="latest-cover-${g['id']}" class="latest-cover img-responsive mx-auto d-block my-auto swiper-lazy" width="300" height="422" alt="${g['name']}"></canvas>
+        latestswiper.update()
+        latest_done[g['id']] = {game:g, slide:val}
+      }
+      latestswiper.lazy.load();
+      $('#latest-spinner').remove()
+      lat_done = true;
+    }
+  });
+}
+
+function Load_LatestReviews() {
+  if ($('#latest-reviews-parent').length == 0) {
+    return
+  }
+  var latest_reviews_swiper = swiper_init('#latest-reviews-parent')
+  latest_reviews_swiper.lazy.load();
+  $('#latest-reviews-parent').removeClass('d-none')
+  $('.latest-review').each(function(index, el) {
+    var canvas = $(el).find('canvas')
+    var cover = $(canvas).attr('data-image')
+    setTimeout(function () {
+      set_cover(`#${$(canvas).attr('id')}`,cover)
+    },500)
+  });
+  latest_reviews_swiper.update()
+}
+
+function Load_MostPopular() {
+  update_addbtn_mp()
+  $('#most_popular li').each(function(index, el) {
+    var canvas = $(el).find('canvas')
+    var id = el.id.substring(el.id.lastIndexOf('-')+1)
+    var cover = $(canvas).attr('data-src')
+    setTimeout(function () {
+      set_cover(`#mp-cover-${id}`,cover)
+    },500)
+    var r = parseFloat($(`#mp-rating-${id}`).attr('data-rating')) //Math.round(((8.5/10)*5) *10)/10
+    set_star_rating_fa(`#mp-star-${id}`, r)
+
+    {% if not request.user.is_authenticated %}
+    $(`#addbtn-mp-${id}`).click(function () {
+      toastr.clear()
+      {% if not request.user.is_authenticated %}
+      toastr.error('Log in to add this game to your list','', {timeOut: 2000})
+      return false
+      {% else %}
+      return true
+      {% endif %}
+    })
+    {% else %}
+    var atl_modal = atl_edit()
+    atl_modal.on_submit = atl_modal.on_delete = function () {
+      setTimeout(function () {
+        update_addbtn_mp()
+      },1000)
+    }
+    atl_modal.init(id, cover, $(`#mp-title-${id}`).text() ,`#addbtn-mp-${id}`, false)
+    {% endif %}
+  });
+}
+
+function Load_TopGames() {
+  update_addbtn_tg()
+  $('.top-list li').each(function(index, el) {
+    var canvas = $(el).find('canvas')
+    var id = el.id.substring(el.id.lastIndexOf('-')+1)
+    var cover = $(canvas).attr('data-src')
+    setTimeout(function () {
+      set_cover(`#tg-cover-${id}`,cover)
+    },500)
+    var r = parseFloat($(`#tg-rating-${id}`).attr('data-rating')) //Math.round(((8.5/10)*5) *10)/10
+    set_star_rating_fa(`#tg-star-${id}`, r)
+
+    {% if not request.user.is_authenticated %}
+    $(`#addbtn-tg-${id}`).click(function () {
+      toastr.clear()
+      {% if not request.user.is_authenticated %}
+      toastr.error('Log in to add this game to your list','', {timeOut: 2000})
+      return false
+      {% else %}
+      return true
+      {% endif %}
+    })
+    {% else %}
+    var atl_modal = atl_edit()
+    atl_modal.on_submit = atl_modal.on_delete = function () {
+      setTimeout(function () {
+        update_addbtn_tg()
+      },1000)
+    }
+    atl_modal.init(id, cover, $(`#tg-title-${id}`).text() ,`#addbtn-tg-${id}`, false)
+    {% endif %}
+
+  });
+}
+
+function update_addbtn_tg() {
+  {% top_games as top_games %}
+  $.post(`{% url 'gamesrec:add_or_edit_bool' %}`, {csrfmiddlewaretoken:`{{csrf_token}}`,gids:`{% check_if_game_in_list gs=top_games %}`}, function(data, textStatus) {
+    $('.addbtn_tg').each(function(index, el) {
+      var icon = $($(el).find('i'))
+      if (data.result[index]) {
+        icon.removeClass('fas fa-plus').addClass('fas fa-pencil-alt')
+      }else{
+        icon.removeClass('fas fa-pencil-alt').addClass('fas fa-plus')
+      }
+    });
+  })
+}
+
+function update_addbtn_mp() {
+  {% most_popular as most_popular %}
+  $.post(`{% url 'gamesrec:add_or_edit_bool' %}`, {csrfmiddlewaretoken:`{{csrf_token}}`,gids:`{% check_if_game_in_list gs=most_popular %}`}, function(data, textStatus) {
+    $('.addbtn_mp').each(function(index, el) {
+      var icon = $($(el).find('i'))
+      if (data.result[index]) {
+        icon.removeClass('fas fa-plus').addClass('fas fa-pencil-alt')
+      }else{
+        icon.removeClass('fas fa-pencil-alt').addClass('fas fa-plus')
+      }
+    });
+  })
+}
+
+function update_addbtn_recp(gids) {
+  $.post(`{% url 'gamesrec:add_or_edit_bool' %}`, {csrfmiddlewaretoken:`{{csrf_token}}`,gids:JSON.stringify(gids)}, function(data, textStatus) {
+    $('.addbtn_recp').each(function(index, el) {
+      var icon = $($(el).find('i'))
+      if (data.result[index]) {
+        icon.removeClass('fas fa-plus').addClass('fas fa-pencil-alt')
+      }else{
+        icon.removeClass('fas fa-pencil-alt').addClass('fas fa-plus')
+      }
+    });
+  })
+}
+
+var cdown = 30
+function LoadRecs() {
+  var swiper = new Swiper('#rec-container', {
+      hashNavigation: false,
+      slidesPerView: 1,
+      spaceBetween: 30,
+      {% if not request.user.is_authenticated %}
+      keyboard: true,
+      {% endif %}
+      // cssMode: true,
+      // mousewheel: true,
+      autoplay: {
+        delay: 2500,
+        disableOnInteraction: false,
+      },
+      pagination: {
+        el: '.swiper-pagination',
+        clickable: true,
+        renderBullet: function (index, className) {
+          return '<span class="' + className + '">' + (index + 1) + '</span>';
+        },
+      },
+      navigation: {
+        nextEl: '.swiper-button-next',
+        prevEl: '.swiper-button-prev',
+      },
+    });
+  {% if request.user.is_authenticated %}
+  $(`.p_rec_header`).append(`<span class="ml-3 sm text-muted" id="cdown" style="font-size:14px;">showing in ${cdown} seconds</span>`)
+  var cdown_interval = setInterval(function () {
+    if (cdown > 0) {
+      cdown--
+      $(`#cdown`).html(`showing in ${cdown} seconds`)
+    }
+  },1000)
+  // set_spinner({id:'rec-spinner', classes:'animated fadeIn faster'},'#rec-container2')
+
+  var rec_swiper = function (selector) {
+    var conf = {
+      hashNavigation: false,
+      keyboard: true,
+      // cssMode: true,
+      // mousewheel: true,
+      // autoplay: {
+      //   delay: 2500,
+      //   disableOnInteraction: false,
+      // },
+      pagination: {
+        el: '.swiper-pagination',
+        clickable: true,
+        type: 'progressbar',
+      },
+      navigation: {
+        nextEl: '.swiper-button-next',
+        prevEl: '.swiper-button-prev',
+      },
+    }
+    var min_point = {
+      slidesPerView: 1,
+      slidesPerGroup: 1,
+      spaceBetween: 10,
+      preloadImages: false,
+      lazy:{
+        loadPrevNext:true,
+        loadPrevNextAmount: 1,
+      }
+    }
+    conf = Object.assign(conf, min_point)
+
+    var breakpoints = {}
+    var slide_no = [2,3,4,4]
+    var b = [360,640,768,1024]
+    for (var i = 0; i < b.length; i++) {
+      var brk = dict.copy(min_point)
+      dict.setAll(brk,{
+        slidesPerView: slide_no[i],
+        slidesPerGroup: slide_no[i]
+      })
+      dict.setChild(brk,['lazy','loadPrevNextAmount'],slide_no[i])
+      breakpoints[b[i]] = brk
+    }
+    conf['breakpoints'] = breakpoints
+    var swiper = new Swiper(selector, conf);
+    return swiper
+  }
+
+  var rec_sw = rec_swiper('#rec-container2')
+  $('#rec-container2').removeClass('d-none')
+  rec_sw.update()
+
+  recs_xhr = $.post(`{% url 'gamesrec:get_personal_recs' %}`, {'csrfmiddlewaretoken':`{{csrf_token}}`}, function(data, textStatus) {
+    setTimeout(function () {
+      console.log(data)
+      var x = 0
+      var rgids = []
+      for (var rec of data.result) {
+        {% if not request.user.is_authenticated %}
+        $(`#addbtn-recp-${x}`).click(function () {
+          toastr.clear()
+          {% if not request.user.is_authenticated %}
+          toastr.error('Log in to add this game to your list','', {timeOut: 2000})
+          return false
+          {% else %}
+          return true
+          {% endif %}
+        })
+        {% else %}
+        rgids.push(rec.id)
+        var atl_modal = atl_edit()
+        atl_modal.on_submit = atl_modal.on_delete = function () {
+          setTimeout(function () {
+            update_addbtn_recp($('#rec-container2').data('gids'))
+          },1000)
+        }
+        atl_modal.init(rec.id, rec.cover, rec.title ,`#addbtn-recp-${x}`, false)
+        {% endif %}
+
+        $(`#recp-cover-parent-${x}`).attr('href',rec.url)
+        $(`#recp-cover-parent-${x}`).attr('title',rec.title)
+        set_cover(`#recp-cover-${x}`,rec.cover)
+        // $(`#recp-cover-parent-${x}`).html(`<img src="${rec.cover}" height="300" width="422" class="img-responsive black" />`)
+        x+=1
+        rec_sw.update()
+      }
+
+      if (rgids.length == 0) {
+        $('#rec-container2').html('<div class="p-4">No recommendations available at the moment</div>')
+      }
+
+      $('#rec-container2').data('gids',rgids)
+      update_addbtn_recp($('#rec-container2').data('gids'))
+
+      // $('#rec-spinner').remove()
+      clearInterval(cdown_interval)
+      $(`#cdown`).remove()
+    },500)
+  })
+  {% endif %}
+}
+
+window.onhashchange = function() {
+ try { recs_xhr.abort(); } catch(e){}
+}
+
+var recs_xhr;
+
+function update_addbtn_recg(gids) {
+  $.post(`{% url 'gamesrec:add_or_edit_bool' %}`, {csrfmiddlewaretoken:`{{csrf_token}}`,gids:JSON.stringify(gids)}, function(data, textStatus) {
+    $('.addbtn_recg').each(function(index, el) {
+      $(el).on('click', function(event) {
+        event.stopPropagation();
+      });
+      var icon = $($(el).find('i'))
+      if (data.result[index]) {
+        icon.removeClass('fas fa-plus').addClass('fas fa-pencil-alt')
+      }else{
+        icon.removeClass('fas fa-pencil-alt').addClass('fas fa-plus')
+      }
+    });
+  })
+}
+
+function LoadRecGuest() {
+  update_addbtn_recg(function () {
+    var gids = []
+    $('.addbtn_recg').each(function(index, el) {
+      var id = $(el).attr('data-id')
+      gids.push(id)
+    })
+    return gids
+  }())
+  $('.addbtn_recg').each(function(index, el) {
+    var id = $(el).attr('data-id')
+    var cover = $(`#recg-cover-${id}`).attr('src')
+    var title = $(`#recg-title-${id}`).text()
+    {% if not request.user.is_authenticated %}
+    $(`#addbtn-recg-${id}`).click(function () {
+      toastr.clear()
+      {% if not request.user.is_authenticated %}
+      toastr.error('Log in to add this game to your list','', {timeOut: 2000})
+      return false
+      {% else %}
+      return true
+      {% endif %}
+    })
+    {% else %}
+    var atl_modal = atl_edit()
+    atl_modal.on_submit = atl_modal.on_delete = function () {
+      setTimeout(function () {
+        update_addbtn_recg(function () {
+          var gids = []
+          $('.addbtn_recg').each(function(index, el) {
+            var id = $(el).attr('data-id')
+            gids.push(id)
+          })
+          return gids
+        }())
+      },1000)
+    }
+    atl_modal.init(id, cover, title ,`#addbtn-recg-${id}`, false)
+    {% endif %}
+  });
+}
+
+$(document).ready(function () {
+  Load_page_async(function () {
+    prefetch_urls()
+    get_popular_searches()
+    async_func(Load_TopGames)
+    async_func(Load_MostPopular)
+    async_func(Load_Latest)
+    async_func(Load_LatestReviews)
+    async_func(LoadRecs)
+    async_func(LoadRecGuest)
+  })
+  // $.ajax({
+  //   url: `https://api.rawg.io/api/games?stores=1,5,11&platforms=4,14,16,18&dates=${century_year()}-01-01,${(new Date()).getFullYear()}-${(new Date()).getMonth()+1}-${(new Date()).getDate()}&ordering=-released&page_size=500`,
+  //   method: 'GET',
+  //   async: false,
+  //   success: function (data) {
+  //     data['results'].forEach(function (value, index, array) {
+  //       // console.log(value['name']);
+  //     })
+  //   }
+  // });
+});
+
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="col-12 row mb-3 mr-0 ml-0">
+  <h6 class="p-0 float-left m-t-sm mr-3">Popular Searches:</h6><popularQueries><span class=""><i class="m-t-sm fas fa-sm fa-spinner fa-spin"></i></span></popularQueries>
+</div>
+
+<div class="content pb-5 rounded">
+  {% comment %} <h1 class="animated infinite bounce delay-2s">Example</h1> {% endcomment %}
+
+
+  {% comment %} <div class="chip">
+    Tag 220
+    <i class="close fas fa-times"></i>
+  </div>
+  <p>
+    {% lorem 100 p %}
+  </p>
+  <button type="button" class="btn btn-lg btn-so">
+  <i class="fab fa-stack-overflow pr-1"></i>
+  <span>Stack Overflow</span>
+</button>
+<span class="counter counter-lg">22</span> {% endcomment %}
+
+{% recs_home as recs %}
+
+{% if request.user.is_authenticated %}
+
+<div class="box-header">
+  <h2 class="header m-b-0 font-weight-bold p-3 p_rec_header">Recommended for you</h2>
+</div>
+
+<div id="rec-container2" class="swiper-container mb-4 d-none">
+    <div class="swiper-wrapper">
+      {% for rec in recs.personal %}
+      <div class="swiper-slide rec-slide">
+        <a class="link" id="recp-cover-parent-{{rec}}">
+          <canvas id="recp-cover-{{rec}}" class="img-responsive black spinner_svg_light" width="300" height="422"></canvas>
+        </a>
+        <a class="btn btn-lg btn-white addbtn_recp" id="addbtn-recp-{{rec}}" data-toggle="tooltip" title="Add to list" style="position: absolute;top: 8px;right: 4px;"><span><i class="fa-plus fas"></i></span></a>
+      </div>
+      {% endfor %}
+    </div>
+    <!-- Add Pagination -->
+    <div class="swiper-pagination"></div>
+    <!-- Add Arrows -->
+    <div class="swiper-button-next"></div>
+    <div class="swiper-button-prev"></div>
+  </div>
+
+  <div class="divider">
+
+    </div>
+
+{% endif %}
+
+<div class="box-header">
+  <h2 class="header m-b-0 font-weight-bold p-3">{% if request.user.is_authenticated %}You may also like{% else %}Recommended{% endif %}</h2>
+</div>
+
+<div id="rec-container" class="swiper-container">
+    <div class="swiper-wrapper">
+      {% for rec in recs.guest %}
+      <div class="swiper-slide rec-slide">
+        <img src="{% if rec.rnd_artwork %}https://images.igdb.com/igdb/image/upload/t_1080p/{{rec.rnd_artwork}}.jpg{% else %}{% if rec.rnd_screenshot %}https://images.igdb.com/igdb/image/upload/t_1080p/{{rec.rnd_screenshot}}.jpg{% else %}{{rec.cover}}{% endif %}{% endif %}" height="410" class="img-responsive black" style="object-fit:cover;" />
+        <div style="position:absolute;width: 100%;height: 100%;bottom: 0;background-image: linear-gradient(to bottom,rgba(0,0,0,0.04) 0%,rgba(0,0,0,0.8) 100%); background-size:100%;">
+          <div class="link" onclick="window.location.href='{{rec.url}}'" style="cursor: pointer;" tabindex="1">
+          <div class="content-inner" style="top:0;position: absolute;bottom: 0;left: 0;right: 0;padding: 60px; padding-left:70px; background-image: linear-gradient(to bottom,rgba(0,0,0,0) 0%,#000000 100%);background-size: 100%;">
+            <div style="position: absolute;bottom: 60px;">
+              <img id="recg-cover-{{rec.id}}" src="{{rec.cover}}" class="pb-3" width="90"/>
+              <div>
+                <h2 id="recg-title-{{rec.id}}" class="float-left" style="font-size: 22px;color: #fff;">{{rec.title}}</h2>
+                <a class="btn btn-xs btn-white float-left ml-2 addbtn_recg" style="font-size: 12px" id="addbtn-recg-{{rec.id}}" data-id="{{rec.id}}"><span><i class="fas fa-plus"></i></span></a>
+              </div>
+            </div>
+          </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <!-- Add Pagination -->
+    <div class="swiper-pagination"></div>
+    <!-- Add Arrows -->
+    <div class="swiper-button-next"></div>
+    <div class="swiper-button-prev"></div>
+  </div>
+
+<div class="row">
+  <div class="col-lg-8 col-md-8 col-xs-12">
+
+    <div class="box-body box-grid-section" style="border-top:0px !important;">
+      <div class="front-section">
+
+        <div class="box-header">
+          <div class="box-tool">
+            <a class="more" href="{% url 'gamesrec:search' %}?so=3">more »</a>
+          </div>
+          <h2 class="header m-b-0 font-weight-bold">Latest Games</h2>
+        </div>
+
+        <div id="latest-parent" class="swiper-container">
+
+          <div id="latest" class="swiper-wrapper">
+            {% for g in lgames  %}
+            <div class="swiper-slide">
+              <a class="game-cover" data-toggle="tooltip" title="{{g.name}}" style="display: block;overflow: hidden;background-color: #ddd;">
+                <img class="img-responsive img-thumbnail rounded mx-auto d-block" src="{{g.cover}}" alt="{{g.name}}">
+              </a>
+              <a class="d-block text-truncate text-center" style="max-width: 127px;">
+                <span class="game-title font-weight-bold text-primary" data-toggle="tooltip" title="{{g.name}}" style="font-size: 14px;">{{g.name}}</span>
+              </a>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="swiper-button-next" tabindex="0" role="button" aria-label="Next slide" aria-disabled="false"></div>
+          <div class="swiper-button-prev" tabindex="0" role="button" aria-label="Previous slide" aria-disabled="false"></div>
+          <span class="swiper-notification" aria-live="assertive" aria-atomic="true"></span>
+
+
+        </div>
+
+      </div>
+    </div>
+
+
+    <div class="box-body box-grid-section">
+      <div class="front-section">
+
+        <div class="box-header">
+          <!-- <div class="box-tool">
+            <a class="more">more »</a>
+          </div> -->
+          <h2 class="header m-b-0 font-weight-bold">Latest Reviews</h2>
+        </div>
+
+        {% latest_reviews as latest_reviews %}
+
+        {% if latest_reviews|length == 0 %}
+        No reviews
+        {% else %}
+
+        <div id="latest-reviews-parent" class="swiper-container d-none">
+
+          <div id="latest-reviews" class="swiper-wrapper">
+            {% for g in latest_reviews  %}
+            <div id="latest-review-{{g.id}}" class="swiper-slide latest-review">
+              <a class="game-cover d-block" href="{{g.game_obj.reviews_url}}" data-toggle="tooltip" title="{{g.name}}" style="overflow: hidden;background-color: #000;">
+                <canvas id="latest-review-cover-{{g.id}}" data-image="{{g.cover}}" class="latest-review-cover img-responsive mx-auto d-block my-auto swiper-lazy" width="300" height="422" alt="{{g.name}}"></canvas>
+              </a>
+              <div class="mt-2 mb-1 ml-1">
+                <span class="rating mr-1"><span class="fill" id="lr-star-{{g.id}}" style="width:{{g.star}}%"></span></span>
+                <span id="lr-rating-{{g.id}}" class="p-l-xs text-sm score" data-rating="{{g.rating}}">{{g.rating}}</span>
+              </div>
+              <a class="d-block text-truncate text-left mt-2 ml-1" style="max-width: 100%;" href="{{g.url}}">
+                <span class="game-title font-weight-bold text-primary" data-toggle="tooltip" title="{{g.name}}" style="font-size: 14px;">{{g.name}}</span>
+              </a>
+              <span class="ml-1">by <a class="text-primary font-weight-bold" href="{{g.by.profile.reviews_url}}">{{g.by.username}}</a></span>
+              <div class="swiper-lazy-preloader swiper-lazy-preloader-white"></div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="swiper-button-next" tabindex="0" role="button" aria-label="Next slide" aria-disabled="false"></div>
+          <div class="swiper-button-prev" tabindex="0" role="button" aria-label="Previous slide" aria-disabled="false"></div>
+          <span class="swiper-notification" aria-live="assertive" aria-atomic="true"></span>
+
+
+        </div>
+
+        {% endif %}
+      </div>
+    </div>
+
+
+  </div>
+
+
+<!-- excluded class front-side-wrapper -->
+  <div class="col-lg-4 col-md-4 col-xs-12">
+    <div class="row no-gutter">
+      <div class="col-lg-12 col-md-12 col-sm-6">
+
+        <div class="box m-t">
+          <div class="box-header">
+            <h2>Top Games</h2>
+          </div>
+          <div class="box-tool">
+            <a class="more" href="{% url 'gamesrec:search' %}?so=5">more</a>
+          </div>
+          <ul class="list top-list">
+            {% top_games as top_games %}
+            {% for value in top_games %}
+            <li id="tg-{{value.id}}" class="list-item animated fadeIn faster" data-slug="{{value.slug}}">
+              <div class="list-left rank">{{forloop.counter}}</div>
+              <div class="list-left">
+                <canvas id="tg-cover-{{value.id}}" width="300" height="422" style="width:55px" data-src="{{value.cover}}"></canvas>
+              </div>
+              <div class="list-body">
+                <div class="text-primary _600">
+                  <a id="tg-title-{{value.id}}" class="title" href="{{value.url}}" title="{{value.title}}">{{value.title}}</a>
+                  <a class="btn btn-xs btn-white addbtn_tg" id="addbtn-tg-{{value.id}}"><span><i class="fas fa-plus"></i></span></a>
+                </div>
+                <div class="list-info">
+                  <div class="mb-1">
+                    <span class="rating mr-1"><span class="fill" id="tg-star-{{value.id}}" style="width:0%"></span></span>
+                    <span id="tg-rating-{{value.id}}" class="p-l-xs text-sm score" data-rating="{{value.rating}}">{{value.rating}}</span>
+                  </div>
+                  <div id="tg-released-{{value.id}}" class="text-sm">{{value.first_release_date|shortMonthDateFormat_str}}</div>
+                  <div id="tg-added-{{value.id}}" class="text-sm">{{value.avg_rating_count}} Players</div>
+                </div>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+
+
+
+      <div class="col-lg-12 col-md-12 col-sm-6">
+        <div class="box m-t">
+          <div class="box-header">
+            <h2>Most Popular Games</h2>
+          </div>
+          <div class="box-tool"><a href="{% url 'gamesrec:search' %}?so=2">more</a></div>
+          <ul id="most_popular" class="list animated fadeIn faster">
+            {% most_popular as most_popular %}
+            {% for value in most_popular %}
+            <li id="mp-{{value.id}}" class="list-item" data-slug="{{value.slug}}">
+              <div class="list-left rank">{{forloop.counter}}</div>
+              <div class="list-left">
+                <canvas id="mp-cover-{{value.id}}" width="300" height="422" style="width:55px" data-src="{{value.cover}}"></canvas>
+              </div>
+              <div class="list-body">
+                <div class="text-primary _600">
+                  <a id="mp-title-{{value.id}}" class="title" href="{{value.url}}" title="{{value.title}}">{{value.title}}</a>
+                  <a class="btn btn-xs btn-white addbtn_mp" id="addbtn-mp-{{value.id}}"><span><i class="fas fa-plus"></i></span></a>
+                </div>
+                <div class="list-info">
+                  <div class="mb-1">
+                    <span class="rating mr-1"><span class="fill" id="mp-star-{{value.id}}" style="width:0%"></span></span>
+                    <span id="mp-rating-{{value.id}}" class="p-l-xs text-sm score" data-rating="{{value.rating}}">{{value.rating}}</span>
+                  </div>
+                  <div id="mp-released-{{value.id}}" class="text-sm">{{value.first_release_date|shortMonthDateFormat_str}}</div>
+                  <div id="mp-added-{{value.id}}" class="text-sm">{{value.avg_rating_count}} Players</div>
+                </div>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+</div>
+
+</div>
+
+{% endblock %}
+
+</html>

@@ -1,0 +1,69 @@
+<script type="text/javascript">
+  function SideNavInit() {
+    $('#nav_menu_btn').sideNav({
+      edge: 'right', // Choose the horizontal origin
+      closeOnClick: true, // Closes side-nav on &lt;a&gt; clicks, useful for Angular/Meteor
+      // breakpoint: 1440, // Breakpoint for button collapse
+      // MENU_WIDTH: 500, // Width for sidenav
+      // timeDurationOpen: 300, // Time duration open menu
+      // timeDurationClose: 200, // Time duration open menu
+      // timeDurationOverlayOpen: 50, // Time duration open overlay
+      // timeDurationOverlayClose: 200, // Time duration close overlay
+      // easingOpen: 'easeOutQuad', // Open animation
+      // easingClose: 'easeOutCubic', // Close animation
+      showOverlay: true, // Display overflay
+      showCloseButton: false // Append close button into siednav
+    });
+    // SideNav Scrollbar Initialization
+    var sideNavScrollbar = document.querySelector('.custom-scrollbar');
+    var ps = new PerfectScrollbar(sideNavScrollbar);
+  }
+  $(document).ready(function() {
+    SideNavInit()
+  });
+
+</script>
+
+{% comment %} Sidebar navigation {% endcomment %}
+<div>
+  <ul id="slide-out" class="side-nav custom-scrollbar elegant-color-dark">
+    <div class="show-sidenav-closebtn-only-mobile">
+      <a class="btn pr-5 text-right"><i class="fa-2x fal fa-times"></i> </a>
+    </div>
+    {% comment %} Side navigation links {% endcomment %}
+    <li>
+
+      <ul class="collapsible collapsible-accordion">
+
+        {% for l in navbar_items  %}
+          <li>
+
+            <a {% if not l.sublinks %}href="{{l.url}}"{% endif %} class="collapsible-header waves-effect arrow-r">
+              {% if l.icon %}{{l.icon | safe}}{% endif %}{{l.name}} {% if l.sublinks %}<i class="fal fa-angle-down rotate-icon mt-4"></i>{% endif %}
+            </a>
+
+            {% if l.sublinks is not None %}
+              <div class="collapsible-body">
+                <ul>
+              {% for sl in l.sublinks  %}
+                  <li>
+                    <a href="{{sl.url}}" class="waves-effect">{{sl.name}}</a>
+                  </li>
+              {% endfor %}
+                </ul>
+              </div>
+            {% endif %}
+
+          </li>
+        {% endfor %}
+
+
+
+      </ul>
+
+    </li>
+    {% comment %}/. Side navigation links {% endcomment %}
+  </ul>
+  <div class="sidenav-bg rgba-blue-strong"></div>
+</div>
+{% comment %}/. Sidebar navigation {% endcomment %}

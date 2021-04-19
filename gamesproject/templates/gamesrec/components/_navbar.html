@@ -1,0 +1,319 @@
+{% load static %}
+
+{% load custom_tags %}
+
+<script>
+  var xhr;
+
+  var sbar_anim = {
+    show:'animated slideInUp faster',
+    hide: 'animated fadeOutDown faster',
+  }
+
+  function log_q(options) {
+    $.ajax({
+      url: `{% url 'gamesrec:log_search_query' %}`,
+      method:'POST',
+      data: {'csrfmiddlewaretoken':`{{csrf_token}}`, 'q':options.q},
+      success: function (data) {
+        options.callback? options.callback(data) : null
+      }
+    })
+  }
+
+  $(document).ready(function() {
+    $('#collapseSearch').off('animationend').on('animationend', function(e) {
+      if($('#collapseSearch').hasClass(sbar_anim.hide))
+      {
+        $('#collapseSearch').removeClass(sbar_anim.hide).addClass('d-none')
+      }
+    })
+    $('.searchform').each(function(index, el) {
+      $($(el).find('input[type="text"]')[0]).autoComplete({
+          minChars: 1,
+          delay:0,
+          searchbar:true,
+          cache:false,
+          source: function(term, suggest){
+            Load_page_async(function () {
+              try { xhr.abort(); } catch(e){}
+              xhr = $.post(`{% url 'gamesrec:search_autocomplete' %}`, {q: term,'csrfmiddlewaretoken':`{{csrf_token}}`}, function(data, textStatus) {
+                suggest(data['matches'],true);
+              }, "json");
+            })
+
+            // var q = term
+            // $.ajax({
+            //   url: `{% url 'gamesrec:search_autocomplete' %}`,
+            //   method: 'POST',
+            //   data: {q: q,'csrfmiddlewaretoken':`{{csrf_token}}`},
+            //   success:function (data) {
+            //     suggest(data['matches']);
+            //   }
+            // })
+          },
+          renderItem:function (item,search) {
+            var name = item['name'];
+
+            search = search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            var re = new RegExp("(" + search.split(' ').join('|') + ")", "gi");
+
+            var sugg = `<div class="autocomplete-suggestion" data-link="${item['url']}" data-val="${name.toLowerCase()}">
+              <img src="${item['cover']}" class="mr-2" width="50" alt="" />
+              ${item['title'].replace(re, "<b>$1</b>")}
+            </div>`
+
+            return sugg
+          },
+          onSelect:function (e, term, item) {
+            setTimeout(function () {
+              $('.autocomplete-suggestions').hide()
+            },350)
+            prefetch_url($(item).attr('data-link'))
+            $(el).data('link',$(item).attr('data-link'))
+            $(el).data('term',term)
+            // window.location.href = $(item).attr('data-link')
+          }
+      });
+      $(el).on('submit', function(e) {
+        e.preventDefault();
+        if (!$(el).hasClass('searching')) {
+          $(el).addClass('searching')
+        }else{
+          return
+        }
+        $('.autocomplete-suggestions').hide()
+        setTimeout(function () {
+          if (!$(el).data('link')) {
+            log_q({q:$(el).serializeArray()[0]['value'], callback:function () {
+              window.location.href = `{% url 'gamesrec:search' %}?${$(el).serialize()}`
+            }})
+
+          }else {
+            if ($(el).val() == $(el).data('term')) {
+              log_q({q:$(el).data('term'), callback:function () {
+                window.location.href = $(el).data('link')
+              }})
+
+            }else {
+              log_q({q:$(el).serializeArray()[0]['value'], callback:function () {
+                window.location.href = `{% url 'gamesrec:search' %}?${$(el).serialize()}`
+              }})
+            }
+          }
+        },10)
+      })
+    });
+
+    function dark_mode_r(options) {
+      $.ajax({
+        url: `{% url 'gamesrec:darkmode_toggle' %}`,
+        method:'POST',
+        data: {'csrfmiddlewaretoken':`{{csrf_token}}`, 'dark_mode':options.dark_mode},
+        success: function (data) {
+          options.callback? options.callback(data) : null
+        }
+      })
+    }
+
+    $('#dark_theme_nav').on('click',function () {
+      var t = $(this)
+      if (t.data('theme_set')) {
+        return
+      }
+      t.data('theme_set',true)
+      if (t.hasClass('dark-selected')) {
+        dark_mode_r({'dark_mode':'0', callback:function () {
+          t.data('theme_set',false)
+        }})
+        t.removeClass('dark-selected').addClass('light-selected')
+        $('#light_icon_t').removeClass('d-none')
+        $('#dark_icon_t').addClass('d-none')
+        $('#app-style').attr('href',"{% static '/gamesrec/css/light.css'%}")
+      }else {
+        dark_mode_r({'dark_mode':'1', callback:function () {
+          t.data('theme_set',false)
+        }})
+        t.removeClass('light-selected').addClass('dark-selected')
+        $('#dark_icon_t').removeClass('d-none')
+        $('#light_icon_t').addClass('d-none')
+        $('#app-style').attr('href',"{% static '/gamesrec/css/dark.css'%}")
+      }
+    })
+
+    $('#searchBtnCollapse').off('click').on('click', searchbtn_toggle);
+  });
+
+  function searchbtn_toggle(event) {
+    // console.log(searchtoggle_prevent);
+    if (searchtoggle_prevent) {
+      $('.searchbar')[1].blur()
+      $('#searchBtnCollapse').blur()
+      $('#collapseSearch').removeClass('display_el').removeClass(sbar_anim.show).addClass(sbar_anim.hide)
+      return
+    }
+    $('#collapseSearch').css('top', $($('.navbar')[0]).css('height'))
+    if (!$('#collapseSearch').hasClass('display_el'))
+    {
+      $('#collapseSearch').removeClass('d-none').removeClass(sbar_anim.hide).addClass('display_el').addClass(sbar_anim.show)
+      // $('.searchbar')[1].focus()
+    }else{
+      $('.searchbar')[1].blur()
+      $('#searchBtnCollapse').blur()
+      $('#collapseSearch').removeClass('display_el').removeClass(sbar_anim.show).addClass(sbar_anim.hide)
+    }
+  }
+
+  var searchtoggle_prevent = false;
+
+  $(document).mouseup(function(e)
+  {
+    if ($('.autocomplete-suggestions').is(e.target) || $(e.target).is('autocomplete-suggestion')) {
+      return
+    }
+    var el_not_clicked = (el, target) => { return !$(el).is(target) && $(el).has(target).length === 0 };
+    var el_clicked = (el, target) => { return $(el).is(target) || $(el).has(target).length != 0 };
+
+    // console.log(e.target, $(e.target).hasClass('autocomplete-suggestion'));
+
+    var search_toggle_clicked = el_clicked('#searchBtnCollapse',e.target)
+    var not_searchbar_clicked = el_not_clicked('#collapseSearch', e.target)
+
+    if (not_searchbar_clicked || search_toggle_clicked) {
+      if ($('#collapseSearch').hasClass('display_el')) {
+        if (search_toggle_clicked || $(e.target).hasClass('autocomplete-suggestion')) {
+          searchtoggle_prevent = true;
+        }else {
+          $('#searchBtnCollapse').click()
+        }
+      }
+    }
+    searchtoggle_prevent = false
+  });
+
+</script>
+
+{% comment %} Navigation {% endcomment %}
+{% comment %} purple darken-4 {% endcomment %}
+<nav class="navbar navbar-expand-lg scrolling-navbar navbar-dark themebgclr z-depth-2 pb-0 pt-0 main_navbar sticky" style="width:100%; top:0;z-index: 800;box-sizing:border-box;position: -webkit-sticky; position: sticky; top:0;">
+  <div class="container">
+    <button id="nav_menu_btn" class="navbar-item navbar-toggler show-navmenubtn-only-mobile pull-right" type="button" data-activates="slide-out">
+       <i class="fa fa-bars pb-1"></i>
+    </button>
+
+    <a class="navbar-brand p-0 pull-left" href="{% url 'gamesrec:index'%}">
+      <!-- <img class="show-logo-only-lg" src="{% static '/gamesrec/logo.png' %}"  style="max-height: 24px;vertical-align: -4px;" width="158" height="24" alt="MyGamesList"> -->
+      <h1 class="logo logo-font">MyGamesList</h1>
+      <span class="show-logo-only-mobile logo logo-font">MGL</span>
+      <span class="counter counter-sm pb-0 pt-0 pl-1 pr-1 small font-weight-bold" style="font-size: 6pt;top:-20px; left:-10px; padding-bottom: 2px!important;">v1.0</span>
+    </a>
+
+    <div class="show-nav-only-lg">
+      <ul class="nav navbar-nav pull-left" style="flex-direction: row;">
+        {% comment %} <li class="nav-item">
+          <a class="nav-link" href="{% url 'gamesrec:index'%}">Home</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#">Explore</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#">About</a>
+        </li> {% endcomment %}
+        {% for l in navbar_items  %}
+          <li class="nav-item {% if l.sublinks %}dropdown{% endif %}">
+            <a class="nav-link {% if l.sublinks %}dropdown-toggle{% endif %}" {% if not l.sublinks %}href="{{l.url}}" {% else %}id="nav-item-dd-{{forloop.counter}}" aria-haspopup="true" aria-expanded="false"{% endif %}>{{l.name}}</a>
+            {% if l.sublinks %}
+            <div class="dropdown-menu shadow rounded-0 border-0" aria-labelledby="nav-item-dd-{{forloop.counter}}" style="line-height: normal!important; width:200px!important; z-index:1;">
+            {% for sl in l.sublinks  %}
+              <a class="dropdown-item small text-normal rounded-0 text-left" href="{{sl.url}}">
+                {{sl.name}}
+              </a>
+            {% endfor %}
+            </div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+
+    </div>
+
+    <form class="searchform col-5 col-sm-5 col-md-5 col-lg-5 pl-3 pl-lg-5 pr-0 pb-0 pull-left show-only-lg" id="searchFrm1" style="padding-top:15px">
+      <div class="input-group pl-0 pr-0 mx-auto" style="line-height:1; width:100%">
+        <input class="col-10 searchbar border-0 rounded-2" type="text" placeholder="Find games..." name="q">
+        <span class="pl-0 pr-0 col-1" >
+          <button type="submit" class="btn btn-unique m-0" style="line-height:1; height: 100%; padding: 8px 20px 8px 20px;" name="button"><i class="fas fa-search"></i></button>
+        </span>
+      </div>
+    </form>
+
+    <ul class="nav navbar-nav pull-right" style="flex-direction:unset;">
+      <!-- <div class="my-auto">
+        <input type="checkbox" id="darkmode" checked="checked">
+        <label id="darkmode-label" class="pt-2 pr-3 text-warning" for="darkmode" ><i class="fal fa-lightbulb-on"></i></label>
+      </div> -->
+        <li class="nav-item nav-search navbar-toggler notclicked">
+            <a class="nav-link pl-3 pr-3 pt-2 pb-2" id="searchBtnCollapse"><i class="fas fa-search"></i></a>
+            <div class="mdl-tooltip" data-mdl-for="searchBtnCollapse">
+              Search
+            </div>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link pl-3 pr-3 pt-2 pb-2 {% if request.dark_mode %}dark-selected{% else %}light-selected{% endif %}" id="dark_theme_nav">
+              <i id="dark_icon_t" class="fa-lg fas fa-eclipse-alt {% if not request.dark_mode %}d-none{% endif %}" style="line-height:1.5;font-size:1.5em;"></i>
+              <i id="light_icon_t" class="fa-lg fas fa-sun {% if request.dark_mode %}d-none{% endif %}" style="line-height:1.5;font-size:1.5em;"></i>
+            </a>
+            <div class="mdl-tooltip" data-mdl-for="dark_theme_nav">
+              Toggle <strong>light</strong>/<strong>dark</strong> theme
+            </div>
+        </li>
+
+        {% if not request.user.is_authenticated %}
+        <li class="nav-item"><a class="nav-link m-l-sm" href="{% url 'gamesrec:register' %}"><span>Sign up</span></a></li>
+        <li class="nav-item"><a class="nav-link nav-login m-l-sm" href="{% url 'gamesrec:login' %}"><span>Log in</span></a></li>
+        {% else %}
+        <li class="nav-item dropdown">
+          <a class="nav-link m-l-sm pl-3 pr-3 dropdown-toggle" aria-haspopup="true" id="nav-item-dd-logout" aria-expanded="false">
+            <!-- <i class="fas fa-2x fa-user-circle" style="padding-top: .9rem;"></i> -->
+            <span class="avatar w-32"><img class="header-user-avatar w-32" src="{% profile_picture_64 request.user %}"></span>
+          </a>
+
+          <div class="dropdown-menu shadow dropdown-menu-right rounded-0 border-0 user_dropdown_center" aria-labelledby="nav-item-dd-logout" style="line-height: normal!important;z-index:2147483647">
+
+            <a class="dropdown-item small text-normal rounded-0 text-left" href="{{request.user.profile.url}}">
+              <i class="fal fa-user-circle mr-2"></i> Profile
+            </a>
+
+            <a class="dropdown-item small text-normal rounded-0 text-left" href="{{request.user.profile.gameslist_url}}">
+              <i class="fal fa-list-alt mr-2"></i> My Games List
+            </a>
+
+            <a class="dropdown-item small text-normal rounded-0 text-left" href="{% url 'gamesrec:account_settings' %}">
+              <i class="fal fa-sliders-h mr-2"></i> Settings
+            </a>
+
+            <div class="dropdown-divider"></div>
+
+            <a class="dropdown-item small text-normal rounded-0 text-left" href="{% url 'gamesrec:logout' %}">
+              <i class="fal fa-sign-out mr-2"></i><span class="">Sign out</span>
+            </a>
+
+          </div>
+        </li>
+        {% endif %}
+
+    </ul>
+
+    <div class="p-0 d-none show-only-mobile" style="position:absolute; left:0;z-index: unset;width:100%;!important;" id="collapseSearch">
+      <form class="searchform my-0 m-0 p-0" style="">
+        <div class="input-group">
+          <input id="searchbar-mobile" class="form-control searchbar rounded-0 m-0" style="padding:25px;" type="text" placeholder="Find games..." name="q">
+          <span class="input-group-btn">
+            <button type="submit" class="btn btn-unique m-0 rounded-0" style="height: 100%;" name="button"><i class="fas fa-search"></i></button>
+          </span>
+        </div>
+      </form>
+    </div>
+
+  </div>
+</nav>

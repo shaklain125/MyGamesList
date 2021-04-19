@@ -1,0 +1,31 @@
+{% extends "gamesrec/base.html" %}
+
+<html>
+
+{% block title %}
+  Registration Complete
+{% endblock %}
+
+{% block script %}
+{% endblock %}
+
+{% block content %}
+
+<div class="content mb-4" style="min-height:30vh;">
+  <div class="p-3">
+    <div class="text-uppercase mb-5">
+      <h4>Thank you for joining us</h4>
+    </div>
+    <div>
+      <div class="col-12">
+        <div class="alert alert-success">
+          Click <a class="text-primary link_color" href="{% url 'gamesrec:login' %}">Here</a> to login
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+</html>

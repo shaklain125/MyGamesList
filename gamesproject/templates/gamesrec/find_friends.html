@@ -1,0 +1,170 @@
+{% extends "gamesrec/base.html" %}
+{% load static %}
+{% load custom_tags %}
+{% load crispy_forms_tags %}
+{% load crispy_forms_field %}
+
+
+{% block title %}
+Find Friends
+{% endblock %}
+
+{% block script %}
+
+<script>
+var similar_xhr;
+
+function log_fq(options) {
+  $.ajax({
+    url: `{% url 'gamesrec:log_friends_search_query' %}`,
+    method:'POST',
+    data: {'csrfmiddlewaretoken':`{{csrf_token}}`, 'user_search':options.pk},
+    success: function (data) {
+      options.callback? options.callback(data) : null
+    }
+  })
+}
+
+$(document).ready(function() {
+  Load_page_async(function () {
+    $('.similar_search').autoComplete({
+        minChars: 1,
+        delay:0,
+        class:'similar-autocomplete-suggestions',
+        itemClass:'similar-autocomplete-suggestion',
+        cache:false,
+        top: '0px',
+        source: function(term, suggest){
+          Load_page_async(function () {
+            try { similar_xhr.abort(); } catch(e){}
+            similar_xhr = $.post(`{% url 'gamesrec:search_friends' %}`, {q: term,'csrfmiddlewaretoken':`{{csrf_token}}`}, function(data, textStatus) {
+              suggest(data['matches']);
+            }, "json");
+          })
+        },
+        renderItem:function (item,search) {
+          var name = item['username'];
+
+          search = search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          var re = new RegExp("(" + search.split(' ').join('|') + ")", "gi");
+
+          var sugg = `<div class="similar-autocomplete-suggestion d-flex" data-val="${name.toLowerCase()}">
+            <div class="float-left">
+              <img src="${item['picture']}" class="mr-2" width="50" alt="" />
+              </div>
+            <div class="float-left">
+              <div>
+                <span style="font-size:15px;">${item['display']}</span>
+              </div>
+              <div>
+                <span class="text-muted">@${item['username']}</span>
+              </div>
+            </div>
+          </div>`
+
+          sugg = $(sugg)
+
+          sugg.data('user',item)
+
+          return sugg
+        },
+        onSelect:function (e, term, item) {
+          $(`.similar_search`).data('sc').hide()
+          $('.similar_search').val('')
+          log_fq({pk:$(item).data('user').id, callback:function () {
+            window.location.href = $(item).data('user').url
+          }})
+        }
+    });
+  })
+});
+
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="content pb-5 rounded" style="min-height: 50vh">
+  <div class="box">
+    <div class="box-body pl-3 pr-3 pt-4">
+      <h4>Find Friends</h4>
+      <div class="mt-4">
+        <input type="text" placeholder="Type username or display name" class="form-control similar_search" style="padding-right:2rem;" value="">
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block css %}
+
+<style>
+
+  .similar-autocomplete-suggestions::-webkit-scrollbar {
+    width: .5em;
+    z-index:5;
+    background-color: inherit;
+  }
+
+  .similar-autocomplete-suggestions::-webkit-scrollbar-track {
+    border-radius: 10px;
+  }
+
+  .similar-autocomplete-suggestions::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    background: var(--scroll-bg);
+  }
+
+  .similar-autocomplete-suggestions::-webkit-scrollbar-thumb:active {
+    background: var(--text-color);
+  }
+
+  .similar-autocomplete-suggestions {
+    text-align: left;
+    cursor: default;
+    /* border: 1px solid #ccc; */
+    border-top: 0;
+    background: var(--dropdown-bg);
+    box-shadow: 2px 4px 12px rgba(0, 0, 0, 0.4);
+    /* core styles should not be changed */
+    position: relative;
+    display: none;
+    z-index: unset;
+    max-height: 500px;
+    left:0;
+    overflow: hidden;
+    overflow-y: auto;
+    box-sizing: border-box;
+    border-radius: 0px 0px 5px 5px !important;
+
+  }
+
+  .similar-autocomplete-suggestion {
+    cursor:pointer !important;
+    position: relative;
+    padding:20px;
+    /* padding: 0 .6em; */
+    /* line-height: 50rem; */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
+    color: var(--text-color);
+    font-weight:bold;
+  }
+
+  .similar-autocomplete-suggestion b {
+    font-weight: normal !important;
+    /* color: #1f8dd6; */
+  }
+
+  .similar-autocomplete-suggestion.selected {
+    background: var(--dropdown-hover-bg);
+    color: var(--text-color);
+  }
+
+</style>
+
+{% endblock %}

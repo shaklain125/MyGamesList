@@ -1,0 +1,2683 @@
+{% extends "gamesrec/base.html" %}
+{% load static %}
+{% load custom_tags %}
+{% load crispy_forms_tags %}
+{% load crispy_forms_field %}
+
+
+{% block title %}
+{% if request.user.is_authenticated and tab_name != None %}
+{{tab_name_title}} -
+{% endif %}
+{{game.title}}
+
+{% endblock %}
+
+{% block script %}
+
+<script>
+
+function pie_highcharts(data) {
+  if($('#pie_highcharts').highcharts()){
+    $('#pie_highcharts').highcharts().destroy()
+  }
+  $('#pie_highcharts').html('')
+
+  var h = new Highcharts.chart('pie_highcharts', {
+      chart: {
+          plotBackgroundColor: null,
+          plotBorderWidth: null,
+          plotShadow: false,
+          type: 'pie'
+      },
+      title: {
+          text: 'Overall Statistics'
+      },
+      tooltip: {
+          pointFormat: `
+          Total: <b>{point.c}</b>
+          <br />
+          Percentage: <b>{point.y:.1f}%</b>
+          `
+      },
+      accessibility: {
+          point: {
+              valueSuffix: '%'
+          }
+      },
+      plotOptions: {
+          pie: {
+            borderWidth: 0,
+              allowPointSelect: true,
+              cursor: 'pointer',
+              dataLabels: {
+                  enabled: true,
+                  format: '<b>{point.name}</b>: {point.y:.1f} %'
+              }
+          }
+      },
+      series: [{
+          name: 'status',
+          colorByPoint: true,
+          data: data
+      }]
+  });
+}
+
+function activities_highchart(data){
+  if($('#activities_highchart').highcharts()){
+    $('#activities_highchart').highcharts().destroy()
+  }
+  $('#activities_highchart').html('')
+  // Create the chart
+  var h = new Highcharts.chart('activities_highchart', {
+      chart: {
+          // scrollablePlotArea: {
+          //     minWidth: 700
+          // }
+          height:'300px'
+      },
+
+      title: {
+          text: ''
+      },
+
+      xAxis: {
+          type: 'category',
+          // tickWidth: 0,
+          gridLineWidth: 1,
+          labels: {
+              formatter: function(){
+                return moment(this.value).format('MMM D')
+              }
+          }
+      },
+
+      yAxis: [{ // left y axis
+          title: {
+              text: null
+          },
+          labels: {
+              align: 'left',
+              x: 3,
+              y: 16,
+              format: '',
+              enabled:false
+          },
+          // showFirstLabel: false
+          // visible:false
+      }],
+
+      legend: {
+          align: 'left',
+          // verticalAlign: 'bottom',
+          borderWidth: 0,
+      },
+
+      tooltip: {
+          shared: true,
+          crosshairs: true,
+          headerFormat: '',
+          pointFormatter: function(){
+            return  `<span><b>${moment(this.name).format('MMMM Do YYYY')}</b><br/><br/><span>Activities</span>: <b>${this.y}</b><br/>`
+          }
+      },
+
+      plotOptions: {
+          series: {
+              cursor: 'pointer',
+              marker: {
+                  lineWidth: 1
+              },
+              color: '#FF0000',
+              events: {
+                  legendItemClick: function() {
+                    return false;
+                  }
+              }
+          }
+      },
+
+      series: [{
+          name: 'Activities',
+          lineWidth: 4,
+          marker: {
+              radius: 4
+          },
+          data: data
+      }]
+  });
+
+}
+
+function bar_highchart1(data){
+  if($('#bar_highcharts1').highcharts()){
+    $('#bar_highcharts1').highcharts().destroy()
+  }
+  $('#bar_highcharts1').html('')
+  // Create the chart
+  var h = new Highcharts.chart('bar_highcharts1', {
+      chart: {
+          type: 'column'
+      },
+      title: {
+          text: 'Age Group'
+      },
+      subtitle: {
+          text: ''
+      },
+      accessibility: {
+          announceNewData: {
+              enabled: true
+          }
+      },
+      xAxis: {
+          type: 'category'
+      },
+      yAxis: {
+          title: {
+              text: ''
+          },
+          max: 100,
+          min:0,
+          labels: {
+            format: '{value}%'
+          }
+
+      },
+      legend: {
+          enabled: false
+      },
+      plotOptions: {
+          series: {
+              borderWidth: 0,
+              dataLabels: {
+                  enabled: true,
+                  format: '{point.r:.1f}'
+              }
+          }
+      },
+
+      tooltip: {
+          headerFormat: '', //'<span style="font-size:11px; color:{point.color}">{point.name}</span><br>',
+          pointFormat: '<span style="font-size:11px; color:{point.color}">{point.name}</span><br><span>Rating</span>: <b>{point.r:.1f}</b><br/><br/><span>Percentage</span>: <b>{point.y:.1f}%</b><br/>'
+      },
+
+      series: [
+          {
+              name: "age_groups",
+              // colorByPoint: true,
+              data: data
+          }
+      ],
+  });
+}
+
+function bar_highchart2(data){
+  if($('#bar_highcharts2').highcharts()){
+    $('#bar_highcharts2').highcharts().destroy()
+  }
+  $('#bar_highcharts2').html('')
+  // Create the chart
+  var h = new Highcharts.chart('bar_highcharts2', {
+      chart: {
+          type: 'column'
+      },
+      title: {
+          text: 'Score Statistics'
+      },
+      subtitle: {
+          text: ''
+      },
+      xAxis: {
+          type: 'category',
+          labels: {
+            step: 2
+          }
+      },
+      yAxis: {
+          min: 0,
+          title: {
+              text: ''
+          },
+          // max: 100,
+          labels: {
+            format: '{value}%'
+          }
+      },
+      legend: {
+          enabled: false
+      },
+      tooltip: {
+          headerFormat: '',
+          pointFormat: '<span style="font-size:11px;">User Score</span><br><span>Rating</span>: <b>{point.name:.1f}</b><br/><br/><span>Percentage</span>: <b>{point.y:.1f}%</b><br/>'
+      },
+      plotOptions: {
+          series: {
+              borderWidth: 0,
+          }
+      },
+      series: [{
+          name: 'Population',
+          color: '#FF0000',
+          data: data,
+      }]
+  });
+}
+
+
+function highchart_init(){
+  Highcharts.setOptions(theme_highcharts())
+  $.ajax({
+    url: `{% url 'gamesrec:get_game_stats' %}`,
+    method:'POST',
+    data: {'csrfmiddlewaretoken':`{{csrf_token}}`, 'id': {{game.id}}},
+    success: function (data) {
+      if(data.stats.length == 4){
+        pie_highcharts(data.stats[0])
+        bar_highchart1(data.stats[1])
+        bar_highchart2(data.stats[2])
+        activities_highchart(data.stats[3])
+      }else{
+        $('#pie_highcharts').parent().html('No statistics available at the moment')
+      }
+    }
+  })
+}
+
+function atl_initiate() {
+  var atl_modal = atl_edit()
+  atl_modal.on_init = atl_modal.on_submit = function () {
+    $('#add_to_list').html($('#id_status').find("option:selected").text())
+    setTimeout(function(){
+      get_your_rating()
+    },1000)
+  }
+
+  atl_modal.on_create = atl_modal.on_delete = function () {
+    $('#add_to_list').html(`<i class="far fa-plus"></i> Add to List`)
+  }
+
+  atl_modal.on_click = function (e) {
+    $('#status_spinner').remove()
+    $(e).html(`<i class="fa-sm fas fa-circle-notch fa-spin mr-2" id="atlbtn_spinner"></i>${$(e).html()}`)
+  }
+
+  atl_modal.on_form_shown = function () {
+    $('#atlbtn_spinner').remove()
+  }
+
+
+
+  atl_modal.init(`{{game.id}}`, `{{game.cover}}`,'{{game.title}}','#add_to_list', true)
+}
+
+function get_your_rating(){
+  $.ajax({
+    url: `{% url 'gamesrec:get_your_rating' %}`,
+    method: 'POST',
+    data: {
+      user: '{{request.user.username}}',
+      game: `{{game.id}}`,
+      csrfmiddlewaretoken:`{{csrf_token}}`
+    },
+    success: function (data) {
+      $('.score b').html(data['rating'])
+      set_star_rating_fa('.ratingPanel .rating .fill', data['rating'])
+    }
+  })
+}
+
+$(document).ready(function() {
+  Load_page_async(function () {
+    // var s = get_spinner({
+    //   id:'game-spinner',
+    //   classes:'animated fadeIn faster mt-3'
+    // },$('#sp'))
+    // $(s).insertBefore('#sp')
+    setTimeout(function(){
+      {% if details %}
+      game()
+      {% endif %}
+    },1)
+
+    {% if request.user.is_authenticated and details %}
+    get_your_rating()
+    atl_initiate()
+    {% else %}
+    $('#add_to_list').on('click',function(){
+      toastr.clear()
+      {% if not request.user.is_authenticated %}
+      toastr.error('Log in to add this game to your list','', {timeOut: 2000})
+      return false
+      {% else %}
+      return true
+      {% endif %}
+    })
+    {% endif %}
+
+    {% if request.user.is_authenticated and tab_name == 'write_review' %}
+
+    $('.dstar-wrapper').each(function(index, el){
+      s_rating(`#${$(el).attr('id')}`)
+    })
+
+    $(`#id_completed_1`).on('change',function(){
+      if($(this).prop('checked')){
+        if(!$(`.dropped`).hasClass('d-none')){
+          $(`.dropped`).find('input').removeAttr('required')
+          $(`.dropped`).addClass('d-none')
+        }
+      }
+    })
+
+    $(`#id_completed_2`).on('change',function(){
+      if($(`.dropped`).hasClass('d-none')){
+        $(`.dropped`).find('input').prop('required','True')
+        $(`.dropped`).removeClass('d-none')
+      }
+    })
+
+    $(`#write_review_frm`).on('submit', function(e){
+      e.preventDefault()
+      var json_ser = function(j){
+        var j_s = []
+        for(var k of Object.keys(j)){
+          j_s.push({name:k, value:j[k]})
+        }
+        return j_s
+      }
+
+      var rev_r = {}
+
+      $('.dstar-wrapper').each(function(index, el){
+        rev_r[$(el).attr('name')] = $(`#${$(el).attr('id')}`).data('star').rating()
+      })
+
+      var d = $(this).serializeArray()
+      $.ajax({
+        url: `{{game_obj.write_review_url}}`,
+        method:'POST',
+        data: d.concat(json_ser( Object.assign(rev_r,{'csrfmiddlewaretoken':`{{csrf_token}}`,'game':`{{game.id}}`}) )),
+        success: function (data) {
+          console.log(data)
+          if(data.result == 'success'){
+            $(`form#write_review_frm`)[0].reset()
+            $('.dstar-wrapper').each(function(index, el){
+              $(el).data('star').rating_methods.fillstar(0)
+            })
+            window.location.href = `{{game_obj.reviews_url}}`
+          }else{
+            toastr.clear()
+            toastr.error(data.val,'', {timeOut: 2000})
+          }
+        },
+      })
+    })
+
+
+    {% endif %}
+
+    {% if tab_name == 'statistics' %}
+    highchart_init()
+    {% endif %}
+
+    {% if request.user.is_authenticated and tab_name == 'add_rec' %}
+
+    set_cover('.cover canvas',`{{game.cover}}`, function () {
+      $('.cover canvas').addClass('animated fadeIn faster')
+    })
+
+    $(`#add_rec_frm`).on('submit', function(e){
+      e.preventDefault()
+    })
+
+    $("form#add_rec_frm").on('keyup keypress',function(e) {
+      return
+    });
+
+    $('.submit_rec_frm').on('click',function(){
+      if(!$('#add_rec_frm').data('game') || $('#add_rec_frm').data('game') && !$('#add_rec_frm').data('game').id || $('#add_rec_frm').data('game') && !parseInt($('#add_rec_frm').data('game').id)){
+        toastr.clear()
+        toastr.error('Please select a similar game','', {timeOut: 2000})
+        return
+      }
+      var json_ser = function(j){
+        var j_s = []
+        for(var k of Object.keys(j)){
+          j_s.push({name:k, value:j[k]})
+        }
+        return j_s
+      }
+
+      var d = $(`form#add_rec_frm`).serializeArray()
+
+      $.ajax({
+        url: `{{game_obj.add_rec}}`,
+        method:'POST',
+        data: d.concat(json_ser({'csrfmiddlewaretoken':`{{csrf_token}}`,'game':`{{game.id}}`, 'similar_game': $('#add_rec_frm').data('game').id})),
+        success: function (data) {
+          if(data.result == 'success'){
+            $(`form#add_rec_frm`)[0].reset()
+            var canvas = $('.similar_cover canvas')[0]
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height)
+            $('#add_rec_frm').removeData('game')
+            $('.sel_game_title').html(`_________`)
+            window.location.href = `{{game_obj.recs_url}}`
+          }else{
+            toastr.clear()
+            toastr.error(data.val,'', {timeOut: 2000})
+          }
+        },
+      })
+    })
+
+    {% endif %}
+
+    {% if tab_name == 'reviews' %}
+    $('#page-selection').twbsPagination({
+        totalPages: {{total_pages}},
+        startPage: {{page}},
+        pageVariable: 'page',
+        visiblePages: 5,
+        prev: '<i class="fas fa-angle-left"></i>',
+        next: '<i class="fas fa-angle-right"></i>',
+        first: '<i class="fas fa-angle-double-left"></i>',
+        last: '<i class="fas fa-angle-double-right"></i>',
+        href: true,
+        hideOnlyOnePage:true
+    })
+
+    {% endif %}
+
+    $('.inner_text').each(function(index, el) {
+      if ($(el).height() >= 100) {
+        $($(el).closest('.review-body')).readMore({readMoreHeight:208, readMoreLinkClass:'read-more_review'})
+      }
+    });
+    $('.read-more_review').click(function () {
+      if ($(this).text() === 'Read less') {
+        $(this).css('position','unset')
+        $(this).css('margin','0')
+        // $(this).prev().find('.review-helpful').css('margin-top','0px')
+      }else{
+        $('html,body').css({
+            scrollTop: $(this).offset().top-370
+          }, 0);
+        $(this).css('position','absolute')
+        $(this).css('margin-top','178px')
+        // $(this).prev().find('.review-helpful').attr('style',`margin-top:127px !important;`)
+      }
+    })
+
+    $('.write_review_link').click(function(e){
+      {% if not request.user.is_authenticated %}
+      e.preventDefault()
+      toastr.clear()
+      toastr.error('Log in to write a review for this game','', {timeOut: 2000})
+      {% endif %}
+    })
+
+    {% if tab_name == 'recs' %}
+    $('#page-selection').twbsPagination({
+        totalPages: {{total_pages}},
+        startPage: {{page}},
+        pageVariable: 'page',
+        visiblePages: 5,
+        prev: '<i class="fas fa-angle-left"></i>',
+        next: '<i class="fas fa-angle-right"></i>',
+        first: '<i class="fas fa-angle-double-left"></i>',
+        last: '<i class="fas fa-angle-double-right"></i>',
+        href: true,
+        hideOnlyOnePage:true
+    })
+
+    rec_like()
+
+    $('.more-recs_toggle').on('click',function(){
+      var more_recs = $(this).closest('.more-recs-container').find('.more_recs')
+      if($(this).attr('data-state') == 'hidden'){
+        $(this).removeAttr('data-state')
+        more_recs.removeClass('d-none')
+        more_recs.show()
+        $(this).data('show',1)
+        $(this).data('show_text', $(this).html())
+        $(this).data('hide_text', 'Hide recommendations')
+        $(this).html($(this).data('hide_text'))
+      }else{
+        if($(this).data('show')){
+          more_recs.hide()
+          $(this).data('show',0)
+          $(this).html($(this).data('show_text'))
+        }else{
+          more_recs.show()
+          $(this).data('show', 1)
+          $(this).html($(this).data('hide_text'))
+        }
+      }
+    })
+
+
+    update_recsu_manage_list(`{% ids_recsu gs=recsu %}`)
+
+    init_recsu_manage_list(`{% ids_recsu gs=recsu %}`)
+
+    {% endif %}
+
+    $('.add_rec_link').click(function(e){
+      {% if not request.user.is_authenticated %}
+      e.preventDefault()
+      toastr.clear()
+      toastr.error('Log in to make a recommendation for this game','', {timeOut: 2000})
+      {% endif %}
+    })
+
+    $('.review-cast-helpful').click(function(e) {
+      var $this = $(this)
+      $.ajax({
+        url: `{% url 'gamesrec:review_helpful' %}`,
+        method:'POST',
+        data: {'csrfmiddlewaretoken':`{{csrf_token}}`,'id':$this.attr('data-id'),'vote':$this.attr('data-label')},
+        success: function (data) {
+          var other_v = $this.parent().find('.review-cast-helpful')
+          other_v.hasClass('voted')? other_v.removeClass('voted') : null
+          if(data.result == 'success'){
+            if (data.type == 'add') {
+              !$this.hasClass('voted')? $this.addClass('voted') : null
+            }else{
+              $this.hasClass('voted')? $this.removeClass('voted') : null
+            }
+            Snackbar.show({
+              pos: 'bottom-left',
+              text:`${data.msg}`,
+              showAction:false,
+              // backgroundColor:'#388e3c',
+              duration:2000
+            });
+          }
+        },
+      })
+    });
+
+    {% if tab_name == 'photos' %}
+    $(`<canvas class="spinner_svg photos_spinner" style="background-color:transparent; width:100%; height:50vh; position:absolute;"></canvas>`).insertBefore('#game_screenshots')
+    try { game_d_xhr.abort(); } catch(e){}
+    game_d_xhr = $.post(`{% url 'gamesrec:get_game_d' %}`, {'id':`{{game.id}}`,'csrfmiddlewaretoken':`{{csrf_token}}`}, function(data, textStatus) {
+      var LoadScreenshots = async function(){
+        var get_total_sshots_count = function(){
+          var c = 0
+          if(data.igdb && data.igdb.screenshots && data.rawg && data.rawg.screenshots){
+            c = data.igdb.screenshots.length + data.rawg.screenshots.length
+          }else{
+            if(data.igdb && data.igdb.screenshots){
+              c = data.igdb.screenshots.length
+            }else if(data.rawg && data.rawg.screenshots){
+              c = data.rawg.screenshots.length
+            }
+          }
+          return c
+        }
+
+        total_sshots_count = get_total_sshots_count()
+
+        $('.sshot-info').html(`<span class="font-weight-bold">${total_sshots_count}</span> photo${total_sshots_count != 1?'s':''} found`)
+
+        var d = []
+
+        var t_c = 0
+
+        var c = 0
+        if (data.igdb && data.igdb.screenshots && data.igdb.screenshots.length > 0){
+          for(var s_shot of data.igdb.screenshots){
+            await imageExists(s_shot.url.replace('t_thumb','t_screenshot_med')).then(function(exists){
+              if(exists){
+                var i = `<img src="${s_shot.url.replace('t_thumb','t_screenshot_med')}" data-href="${s_shot.url.replace('t_thumb','t_1080p')}" alt="">`
+                // $('#game_screenshots').append(i)
+                d.push(i)
+                c+=1
+                t_c+=1
+              }
+            })
+          }
+        }
+
+        var c = 0
+        if(data.rawg && data.rawg.screenshots && data.rawg.screenshots.length > 0){
+          for (var s_shot of data.rawg.screenshots.reverse()){
+            await imageExists(s_shot.image).then(function(exists){
+              if(exists){
+                var i = `<img src="${s_shot.image}" data-href="${s_shot.image}" alt="">`
+                // $('#game_screenshots').append(i)
+                d.push(i)
+                c+=1
+                t_c+=1
+              }
+            })
+          }
+        }
+
+
+        if(total_sshots_count != t_c){
+          total_sshots_count = t_c
+          $('.sshot-info').html(`<span class="font-weight-bold">${total_sshots_count}</span> photo${total_sshots_count != 1?'s':''} found`)
+        }
+
+        $('#game_screenshots').data('photos',d)
+
+        Load_Photos()
+
+      }
+
+      LoadScreenshots()
+    })
+    {% elif tab_name == None %}
+    $(`<canvas class="spinner_svg photos_spinner" style="background-color:transparent; width:100%; height:50px; position:absolute;"></canvas>`).insertBefore('#game_screenshots')
+    $(`<canvas class="spinner_svg videos_spinner" style="background-color:transparent; width:100%; height:50px; position:absolute;"></canvas>`).insertBefore('#game_videos_parent')
+
+    $('.sys_req > .box-header').on('click',function(){
+      var arr = $(this).find('.arrow_')
+      if(arr.hasClass('fas fa-angle-down')){
+        arr.removeClass('fas fa-angle-down')
+        arr.addClass('fas fa-angle-up')
+      }else{
+        arr.removeClass('fas fa-angle-up')
+        arr.addClass('fas fa-angle-down')
+      }
+      var reqs = $(this).parent().find('.box-body')
+      reqs.hasClass('d-none')? reqs.removeClass('d-none') : reqs.addClass('d-none')
+    })
+    {% endif %}
+
+    {% if tab_name == 'add_rec' %}
+    $('.similar_search').autoComplete({
+        minChars: 1,
+        delay:0,
+        class:'similar-autocomplete-suggestions',
+        itemClass:'similar-autocomplete-suggestion',
+        cache:false,
+        source: function(term, suggest){
+          Load_page_async(function () {
+            try { similar_xhr.abort(); } catch(e){}
+            similar_xhr = $.post(`{% url 'gamesrec:search_autocomplete' %}`, {q: term,'csrfmiddlewaretoken':`{{csrf_token}}`,exclude_game:`{{game.id}}`}, function(data, textStatus) {
+              suggest(data['matches']);
+            }, "json");
+          })
+        },
+        renderItem:function (item,search) {
+          var name = item['name'];
+
+          search = search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          var re = new RegExp("(" + search.split(' ').join('|') + ")", "gi");
+
+          var sugg = `<div class="similar-autocomplete-suggestion" data-val="${name.toLowerCase()}">
+            <img src="${item['cover']}" class="mr-2" width="50" alt="" />
+            ${item['title'].replace(re, "<b>$1</b>")}
+          </div>`
+
+          sugg = $(sugg)
+
+          sugg.data('game',item)
+
+          return sugg
+        },
+        onSelect:function (e, term, item) {
+          $(`.similar_search`).data('sc').hide()
+          $('.similar_search').val('')
+          $('#id_rec_text').focus()
+          var d = $(item).data('game')
+          $('#add_rec_frm').data('game', d)
+          $('.sel_game_title').html(d.title)
+          $($('.similar_cover canvas').closest('a')).attr('data-id',d.id)
+          $($('.similar_cover canvas').closest('a')).attr('href',d.url)
+          set_cover('.similar_cover canvas',d.cover_big, function () {
+            $('.similar_cover canvas').addClass('animated fadeIn faster')
+          })
+        }
+    });
+    {% endif %}
+
+  })
+});
+
+var similar_xhr;
+
+function change_grid(breakpoint) {
+  if($('.photos_spinner').length == 0){
+    {% if tab_name == 'photos' %}
+    $(`<canvas class="spinner_svg photos_spinner" style="background-color:transparent; width:100%; height:50vh; position:absolute;"></canvas>`).insertBefore('#game_screenshots')
+    {% elif tab_name == None %}
+    $(`<canvas class="spinner_svg photos_spinner" style="background-color:transparent; width:100%; height:50px; position:absolute;"></canvas>`).insertBefore('#game_screenshots')
+    $('.photos_box').css('height','249px')
+    {% endif %}
+  }
+  $(`#game_screenshots`).removeData('plugin_photosetGrid')
+  $(`#game_screenshots`).html('')
+  $(`#game_screenshots`).attr('data-layout','')
+  for(var i of $('#game_screenshots').data('photos')){
+    $(`#game_screenshots`).append(i)
+  }
+  {% if tab_name == None %}
+  var grids = [111111,222,33,33,33]
+  {% else %}
+
+  var get_size = function(n, total, d){
+    var times = total % d == 0? total/d : (total-1)/d
+    var x  = parseInt(n.toString().repeat(parseInt(times)))
+    var y = total % d != 0? parseInt((n-1).toString()) : null
+    if(y){
+      x = parseInt(`${x.toString()}${y.toString()}`)
+    }
+    return x
+  }
+
+  var grids = [get_size(1, total_sshots_count, 1),get_size(2, total_sshots_count, 2)]
+  grids = grids.concat(fillArray(get_size(3, total_sshots_count, 3), 3))
+  {% endif %}
+  // console.log(grids, grids[breakpoint-1], breakpoint-1)
+  $(`#game_screenshots`).attr('data-layout',grids[breakpoint-1])
+  set_photo_grid()
+}
+
+function fix_s_height() {
+  var count = {}
+  var s_shots = $(`#game_screenshots a div img`)
+  for(var i of s_shots)
+  {
+    var h = $(i).height().toString()
+    count[h] = Object.keys(count).includes(h)? count[h]+1 : 1
+  }
+  var m_h = key_with_highest_val(count)
+  for (var i of s_shots) {
+    $(i).attr('style',$(i).attr('style')+`height:${m_h}px;object-fit: cover;`)
+  }
+}
+
+function set_photo_grid() {
+  $(`#game_screenshots`).photosetGrid({
+    gutter:'5px',
+    onComplete:function () {
+      $(`#game_screenshots`).removeClass('d-none')
+      $(`#game_screenshots div a`).each(function(index, el) {
+        $(el).on('click',function (e) {
+          options = { index: index, event: e },
+          blueimp.Gallery($(`#game_screenshots div a`).get(), options)
+        })
+      });
+      fix_s_height()
+      $('.photos_spinner').addClass('animated fadeOut faster')
+      setTimeout(function(){
+        $('.photos_spinner').remove()
+      },1000)
+      $('.photos_box').css({'height':'auto'})
+    }
+  });
+}
+
+function Load_Photos() {
+  if (total_sshots_count > 0) {
+    change_grid(getBreakpoint())
+    onBreakpoint(function (e) {
+      $('#game_screenshots').addClass('d-none')
+      change_grid(e.breakpoint?e.breakpoint:5)
+    })
+  }else{
+    $('.photos_spinner').addClass('animated fadeOut faster')
+    setTimeout(function(){
+      $('.photos_spinner').remove()
+    },1000)
+    $('.photos_box').css({'height':'auto'})
+  }
+}
+
+function swiper_init(selector) {
+  var conf = {
+    init: false,
+    hashNavigation: false,
+    navigation: {
+      nextEl: '.swiper-button-next',
+      prevEl: '.swiper-button-prev',
+    }
+  }
+  var min_point = {
+    slidesPerView: 'auto',
+    slidesPerGroup: 1,
+    spaceBetween: 10,
+    preloadImages: false,
+    lazy:{
+      loadPrevNext:true,
+      loadPrevNextAmount: 1,
+    }
+  }
+  if(total_videos_count > 0){
+    conf = Object.assign(conf, min_point)
+  }
+
+  var breakpoints = {}
+  var slide_no = []
+  if(total_videos_count == 1){
+    slide_no = [1,1,1,1]
+  }else if(total_videos_count == 2){
+    slide_no = [2,2,2,2]
+  }else if(total_videos_count == 3){
+    slide_no = [2,3,3,3]
+  }else{
+    slide_no = [2,2,3,3]
+  }
+
+  var b = [360,640,768,1024]
+  for (var i = 0; i < b.length; i++) {
+    var brk = dict.copy(min_point)
+    var c = {}
+    c['slidesPerView'] = slide_no[i]
+    c['slidesPerGroup'] = slide_no[i]
+    dict.setAll(brk, c)
+    dict.setChild(brk,['lazy','loadPrevNextAmount'],slide_no[i])
+    breakpoints[b[i]] = brk
+  }
+  if(total_videos_count > 0){
+    conf['breakpoints'] = breakpoints
+  }
+  // console.log(conf);
+  return new Swiper (selector, conf)
+}
+
+window.onhashchange = function() {
+ try { game_d_xhr.abort(); } catch(e){}
+}
+
+
+var game_d_xhr;
+var total_videos_count;
+
+var total_sshots_count;
+
+function game() {
+  Load_page_async(function () {
+    try { game_d_xhr.abort(); } catch(e){}
+    game_d_xhr = $.post(`{% url 'gamesrec:get_game_d' %}`, {'id':`{{game.id}}`,'csrfmiddlewaretoken':`{{csrf_token}}`}, function(data, textStatus) {
+      setTimeout(function(){
+        $('#game_developers span').html('')
+        $('#game_publishers span').html('')
+        if(data['game_developers'] && data['game_developers'].length != 0){
+          var dev = data['game_developers'].map(x => `<span class="text-muted">${x.company.name}</span>`)
+          $('#game_developers > span').append(dev.join('<span>, </span>'))
+        }else{
+          $('#game_developers > span').html('None')
+        }
+        if(data['game_publishers'] && data['game_publishers'].length != 0){
+          var p = data['game_publishers'].map(x => `<span class="text-muted">${x.company.name}</span>`)
+          $('#game_publishers > span').append(p.join('<span>, </span>'))
+        }else{
+          $('#game_publishers > span').html('None')
+        }
+        console.log(data)
+
+        if(data.igdb && data.igdb.game_collection && data.igdb.game_collection.length > 0){
+          $('#game_series span span').html(data.igdb && data.igdb.game_collection && data.igdb.collection.name?data.igdb.collection.name:'')
+          var get_coll = function(){
+            var s = ''
+            for(g of data.igdb.game_collection){
+              if(g.id != `{{game.id}}`){
+                s += `<li>
+                  <span class="mr-2">${shortMonthDateFormat_epoch(g.first_release_date)}</span>
+                  <a class="text-primary" href="/${g.id}-${g.slug}">${g.name}</a>
+                </li> `
+              }
+            }
+            return s
+          }
+          $(`#game_series span`).html(`<ul class="pl-2" style="list-style-type:none;">
+            ${get_coll()}
+          </ul>`)
+        }else{
+          $(`#game_series`).remove()
+        }
+      },1000)
+
+      var wsite_categs = [
+      [`fas fa-external-link`,'Official Website'],
+      [`fab fa-wikipedia-w`, 'WikiA'],
+      [`fab fa-wikipedia-w`,'Wikipedia'],
+      [`fab fa-facebook-f`, 'Facebook'],
+      [`fab fa-twitter`, 'Twitter'],
+      [`fab fa-twitch`, 'Twitch'],
+      [`fas fa-link null1`,null],
+      [`fab fa-instagram`, 'Instagram'],
+      [`fab fa-youtube`, 'YouTube'],
+      [`fab fa-apple`, 'IPhone'],
+      [`fab fa-apple`, 'IPad'],
+      [`fab fa-android`, 'Android'],
+      [`fab fa-steam`, 'Steam Store'],
+      [`fab fa-reddit`, 'Reddit'],
+      [`fab fa-itch-io`, 'Itch.io'],
+      [`fas fa-link epic`,'Epic Games'],
+      [`fas fa-link gog`,'GOG'],
+      [`fab fa-playstation`, 'PlayStation Store'],
+      [`fab fa-xbox`, 'X-box Store'],
+      [`fab fa-windows`, 'Microsoft Store'],
+      ]
+
+      var wsite_categs_rawg = [
+      [`fab fa-steam`, 'Steam Store'],
+      [`fab fa-xbox`, 'Xbox Store'],
+      [`fab fa-playstation`, 'PlayStation Store'],
+      [`fab fa-apple`, 'App Store'],
+      [`fas fa-link gog`,'GOG'],
+      [`fas fa-link nintendo`,'Nintendo'],
+      [`fab fa-xbox`, 'Xbox 360 Store'],
+      [`fab fa-android`, 'Google Play Store'],
+      [`fab fa-itch-io`, 'Itch.io'],
+      [`fas fa-link null2`,null],
+      [`fas fa-link epic`,'Epic Games'],
+      ]
+
+      var igdb_rawg_relative_wsite_indx = function(class_name){
+        var indx = -1
+        for(var i in wsite_categs_rawg){
+          if(wsite_categs_rawg[i][0] == class_name){
+            indx = i
+          }
+        }
+        if(indx != -1){
+          delete wsite_categs_rawg[indx]
+        }
+      }
+
+      var wsites = []
+
+      if(data.igdb && data.igdb.websites && data.igdb.websites.length > 0){
+        wsites = wsites.concat(data.igdb.websites.map(function(x){
+          igdb_rawg_relative_wsite_indx(wsite_categs[x.category-1][0])
+          return `<a class="m-2 rounded-circle p-3 btn btn-white ${wsite_categs[x.category-1][0]}" target="_blank" title="${wsite_categs[x.category-1][1]?wsite_categs[x.category-1][1]: x.url}" href="${x.url}"></a>`
+        }))
+      }
+
+
+
+      if(data.rawg && data.rawg.stores && data.rawg.stores.length > 0){
+        wsites = wsites.concat(data.rawg.stores.map(x => wsite_categs_rawg[x.store.id-1]?`<a class="m-2 rounded-circle p-3 btn btn-white ${wsite_categs_rawg[x.store.id-1][0]}" target="_blank" title="${wsite_categs_rawg[x.store.id-1][1]?wsite_categs_rawg[x.store.id-1][1]: x.url}" href="${x.url}"></a>`:null))
+      }
+
+      if(wsites.length > 0){
+        $('#game_wsites > span').append(wsites.join(''))
+      }else{
+        $('#game_wsites > span').append('None')
+      }
+
+      if(data.igdb && data.igdb.steam){
+        if(data.igdb.steam.pc_requirements){
+          $('.sys_req > .box-body').html(`
+            <div class="mx-1">
+              <div>
+                ${data.igdb.steam.pc_requirements.minimum?data.igdb.steam.pc_requirements.minimum:null}
+              </div>
+              <div>
+                ${data.igdb.steam.pc_requirements.recommended?data.igdb.steam.pc_requirements.recommended:''}
+              </div>
+            </div>`)
+        }
+        if(data.igdb.steam.price_overview){
+          $('.info1').append(`
+          <div class="col-12 mt-2 mb-4" style="overflow:hidden;">
+            <i class="fab fa-steam fa-2x float-left"></i><span class="font-weight-bold mt-2 float-right">${data.igdb.steam.price_overview.final_formatted?data.igdb.steam.price_overview.final_formatted:''}</span>
+          </div>`)
+        }else{
+          if(data.igdb.steam.is_free != null && data.igdb.steam.is_free == true){
+            $('.info1').append(`
+            <div class="col-12 mt-2 mb-4" style="overflow:hidden;">
+              <i class="fab fa-steam fa-2x float-left"></i><span class="font-weight-bold mt-2 float-right">FREE</span>
+            </div>`)
+          }
+        }
+      }
+
+
+
+
+
+
+
+
+
+      if(!data.rawg){
+        console.log('NO RAWG FOUND');
+      }
+
+
+      var LoadScreenshots = async function(){
+        var get_total_sshots_count = function(){
+          var c = 0
+          if(data.igdb && data.igdb.screenshots && data.rawg && data.rawg.screenshots){
+            c = data.igdb.screenshots.length + data.rawg.screenshots.length
+          }else{
+            if(data.igdb && data.igdb.screenshots){
+              c = data.igdb.screenshots.length
+            }else if(data.rawg && data.rawg.screenshots){
+              c = data.rawg.screenshots.length
+            }
+          }
+          return c
+        }
+
+        total_sshots_count = get_total_sshots_count()
+
+        $('.sshot-info span').html(total_sshots_count)
+
+        var d = []
+
+        var c = 0
+        if (data.igdb && data.igdb.screenshots && data.igdb.screenshots.length > 0){
+          for(var s_shot of data.igdb.screenshots){
+            await imageExists(s_shot.url.replace('t_thumb','t_screenshot_med')).then(function(exists){
+              if(exists){
+                if(c < 6){
+                  var i = `<img src="${s_shot.url.replace('t_thumb','t_screenshot_med')}" data-href="${s_shot.url.replace('t_thumb','t_1080p')}" alt="">`
+                  // $('#game_screenshots').append(i)
+                  d.push(i)
+                }
+                c+=1
+              }
+            })
+          }
+        }
+
+        var c = 0
+        if(data.rawg && data.rawg.screenshots && data.rawg.screenshots.length > 0){
+          if (data.igdb && data.igdb.screenshots && data.igdb.screenshots.length < 6 || !data.igdb.screenshots){
+            for (var s_shot of data.rawg.screenshots.reverse()){
+              await imageExists(s_shot.image).then(function(exists){
+                if(exists){
+                  if (data.igdb && !data.igdb.screenshots){
+                    var i =`<img src="${s_shot.image}" data-href="${s_shot.image}" alt="">`
+                    // $('#game_screenshots').append(i)
+                    d.push(i)
+                  }else{
+                    if (c < 6-(data.igdb && data.igdb.screenshots && data.igdb.screenshots.length?data.igdb.screenshots.length:0)){
+                      var i = `<img src="${s_shot.image}" data-href="${s_shot.image}" alt="">`
+                      // $('#game_screenshots').append(i)
+                      d.push(i)
+                    }
+                  }
+                  c+=1
+                }
+              })
+            }
+          }
+        }
+
+        {% if tab_name == None %}
+
+        $('#game_screenshots').data('photos',d)
+
+        Load_Photos()
+
+        {% endif %}
+      }
+
+
+      LoadScreenshots()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      var get_total_videos_count = function(){
+        var c = 0
+        if(data.igdb && data.igdb.videos && data.rawg && data.rawg.youtube_videos){
+          c = data.igdb.videos.length + data.rawg.youtube_videos.length
+        }else{
+          if(data.igdb && data.igdb.videos){
+            c = data.igdb.videos.length
+          }else{
+            if(data.rawg && data.rawg.youtube_videos){
+              c = data.rawg.youtube_videos.length
+            }
+          }
+        }
+        return c
+      }
+
+
+      total_videos_count = get_total_videos_count()
+
+      $('.video-text-info span').html(`<span class="font-weight-bold">${total_videos_count}</span> video${total_videos_count != 1?'s':''}`)
+
+      if(data.rawg && data.rawg.youtube_videos && data.rawg.youtube_videos.length > 0){
+        for(var v of data.rawg.youtube_videos){
+          $(`#gl-videos`).append(`<a href="https://www.youtube.com/watch?v=${v.external_id}"></a>`)
+        }
+      }
+
+
+      if(data.igdb && data.igdb.videos && data.igdb.videos.length > 0){
+        for(var v of data.igdb.videos){
+          $(`#gl-videos`).append(`<a href="https://www.youtube.com/watch?v=${v.video_id}"></a>`)
+        }
+      }
+
+      if(data.rawg && data.rawg.youtube_videos && data.rawg.youtube_videos.length > 0){
+        for(var v of data.rawg.youtube_videos){
+          var v_r  = `<div class="swiper-slide" data-video-url="https://www.youtube.com/watch?v={{v.external_id}}">
+            <a class="game-video" data-toggle="tooltip" title="${v.name}" style="display: block;overflow: hidden;">
+              <img src="${v.thumbnails.maxresdefault.url}" class="img-responsive mx-auto d-block my-auto swiper-lazy rounded" style="background-color:black" width="270" height="151" alt="">
+            </a>
+            <div class="ml-1 mt-1 mb-0 mr-0">
+              <a class="game-video-title d-block video-title text-primary font-weight-bold" style="overflow:hidden;font-size: 14px;" data-toggle="tooltip" title="${v.name}">
+                <p class="text-primary mb-1 video_title">${v.name}</p>
+              </a>
+              <span class="text-muted d-block"><a href="https://www.youtube.com/channel/${v.channel_id}">${v.channel_title}</a></span>
+            </div>
+          </div>`
+          $('#game_videos').append(v_r)
+        }
+      }
+
+      // maxresdefault.jpg
+
+      // sddefault.jpg
+
+      if(data.igdb && data.igdb.videos && data.igdb.videos.length > 0){
+        for(var v of data.igdb.videos){
+          var v_r  = `<div class="swiper-slide" data-video-url="https://www.youtube.com/watch?v=${v.video_id}">
+            <a class="game-video" data-toggle="tooltip" title="${v.name}" style="display: block;overflow: hidden;">
+              <img src="https://i.ytimg.com/vi/${v.video_id}/sddefault.jpg" class="img-responsive mx-auto d-block my-auto swiper-lazy rounded" style="background-color:black" width="270" height="151" alt="">
+            </a>
+            <div class="ml-1 mt-1 mb-0 mr-0">
+              <a class="game-video-title d-block video-title text-primary font-weight-bold" style="overflow:hidden;font-size: 14px;" data-toggle="tooltip" title="${v.name}">
+                <p class="text-primary mb-1">${v.name}</p>
+              </a>
+            </div>
+          </div>`
+          $('#game_videos').append(v_r)
+        }
+      }
+
+      if (total_videos_count > 0) {
+        {% if tab_name == None %}
+        var v_sw = swiper_init('#game_videos_parent')
+        setTimeout(function(){
+          $('.videos_box').css({'height':'auto'})
+          $('.videos_spinner').addClass('animated fadeOut faster')
+          setTimeout(function(){
+            $('.videos_spinner').remove()
+          },1000)
+          v_sw.init()
+          $('#game_videos_parent').removeClass('d-none')
+          v_sw.update()
+          $('#game_videos_parent').data('swiper',v_sw)
+        }, 500)
+        lightGallery_preset1('#gl-videos',(data.rawg && data.rawg.youtube_videos ?data.rawg.youtube_videos.length :0))
+        $('.game-video').each(function(index, el) {
+          $($(el).parent().find('.game-video-title')[0]).on('click',function () {
+            $('#gl-videos a')[index].click()
+          })
+          $(el).on('click',function () {
+            $('#gl-videos a')[index].click()
+          })
+        });
+        {% endif %}
+      }else{
+        {% if tab_name == None %}
+        $('.videos_box').css({'height':'auto'})
+        $('.videos_spinner').addClass('animated fadeOut faster')
+        setTimeout(function(){
+          $('.videos_spinner').remove()
+        },1000)
+        {% endif %}
+      }
+
+      var igdb = {
+        name:`{{game.name}}`,
+        first_release_date:`{{game.first_release_date.timestamp}}`,
+        videos: data.igdb && data.igdb.videos? data.igdb.videos :[]
+      }
+      var rawg = {
+        youtube_videos: data.rawg && data.rawg.youtube_videos? data.rawg.youtube_videos : []
+      }
+      set_trailers_dynamic_btn('#btn-trailer', '#igdb_trailers' ,igdb,rawg, function (trailers) {
+        if(trailers.length > 0)
+        {
+          $('#btn-trailer').html(`<i class="fa fa-play-circle mr-2"></i> Watch Trailer`)
+        }else {
+          $(`<div class="text-center"><span>No trailers found</span></div>`).insertBefore('#btn-trailer')
+          $('#btn-trailer').remove()
+        }
+      })
+
+
+
+    }, "json");
+  })
+
+  $('#game-cover-img').on('click',function(){
+    var lightbox = lity(`{{game.cover}}`);
+  })
+
+  set_cover('#game-cover-img',`{{game.cover}}`, function () {
+    $('#game-cover-img').addClass('animated fadeIn faster')
+  })
+
+  {% if has_read_more %}
+  $('#game_description').readMore()
+  {% endif %}
+  $('#game_description').addClass('animated fadeIn faster').removeClass('d-none')
+
+  var ser = ['playstation','pc','switch', 'nintendo','xbox'], p_icons_obj = {}
+  {% if game_obj.platforms.all|length > 0 %}
+  {% for platform in game_obj.platforms.all %}
+  get_platform_icon({name:`{{platform.name}}`}, ser, p_icons_obj)
+  {% endfor %}
+  {% endif %}
+  add_p_icons(p_icons_obj,function (index,icon) {
+    $('.game-title').append(`<span class="${index == 0? 'ml-2' : ''} mr-2">${icon}</span>`)
+  })
+
+  $('#game-spinner').remove()
+  $('#sp').remove()
+}
+
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+{% comment %}
+<div id="sp" class="mb-5">
+</div>
+{% endcomment %}
+
+<div id="game_container" class="row">
+  <div {% if details %} id="game_col1" class="col-lg-8 col-md-8 col-right" {% else %}class="col-12"{% endif %}>
+
+    <div class="box">
+      <div class="box-header box-navbar">
+        <h1 class="game-title" style="font-size:18pt;">
+          <span title="{{game.name}}">{{game.title}}</span>
+        </h1>
+        <ul id="game_tabs" class="nav nav-tabs">
+          <li class="page-item nav-item {% if tab_name == None %}active{% endif %}"><a class="nav-link" href="{{game_obj.url}}">Details</a></li>
+          <li class="page-item nav-item {% if tab_name == 'reviews' %}active{% endif %}"><a class="nav-link" href="{{game_obj.reviews_url}}">Reviews</a></li>
+          <li class="page-item nav-item {% if tab_name == 'recs' %}active{% endif %}"><a class="nav-link" href="{{game_obj.recs_url}}">Recommendations</a></li>
+          <li class="page-item nav-item {% if tab_name == 'photos' %}active{% endif %}"><a class="nav-link" href="{{game_obj.photos_url}}">Photos</a></li>
+          {% comment %}<li class="page-item nav-item {% if tab_name == 'videos' %}active{% endif %}"><a class="nav-link" href="{{game_obj.videos_url}}">Videos</a></li>{% endcomment %}
+          <li class="page-item nav-item {% if tab_name == 'statistics' %}active{% endif %}"><a class="nav-link" href="{{game_obj.stats_url}}"><i class="far fa-chart-bar"></i></a></li>
+        </ul>
+      </div>
+      {% if tab_name == None %}
+        <div class="box-body">
+          <div class="row">
+
+            <div class="col-sm-4 game-cover cover">
+
+              <a style="display: block;" title="{{game.name}}">
+                <canvas id="game-cover-img" class="img-responsive" width="300" height="422" style="background-color:black;"></canvas>
+              </a>
+
+              <div class="m-b-sm mt-3">
+                <button id="btn-trailer" class="btn-block btn btn-white"><i class="fa-sm fas fa-circle-notch fa-spin mr-2"></i> Loading Trailers</button>
+                <div id="igdb_trailers" class="d-none">
+                </div>
+              </div>
+
+              <div id="group-manage-list" class="btn-group group-manage-list dropdown m-b-sm btn-block">
+                <button id="add_to_list" class="btn m-b-sm btn-white btn-manage-list main col-xs-12 col-sm-12">
+                  {% if request.user.is_authenticated %}
+                    <i class="fa-sm fas fa-circle-notch fa-spin mr-2" id="status_spinner"></i> Status
+                  {% else %}
+                  <i class="far fa-plus"></i> Add to List
+                  {% endif %}
+                </button>
+                {% comment %}
+                <button class="btn m-b-sm btn-white btn-clist col-xs-2 col-sm-3" data-toggle="dropdown"><i class="fa fa-list"></i></button>
+                {% endcomment %}
+              </div>
+
+              <div class="info1">
+
+              </div>
+
+              <!-- <button type="button" data-toggle="modal" data-target="#atlModal">Launch modal</button> -->
+
+            </div>
+
+            <div id="show-detailsxx" class="col-sm-8">
+              <div class="row no-gutter">
+                <div class="col-game-rating">
+                  <div class="box deep-orange" style="background-color: rgb(239, 99, 44);">{{game.rating}}</div>
+                </div>
+                <div class="col-xs-8 col-sm-8 col-lg-8">
+                  <div id="your-rating-6753" class="your-rating">
+                    <div class="txt"><b class="text-muted">Your Rating:</b> <span class="ratingPanel btn-manage-list"> <span class="rating"><span class="fill" style="width: 0%"></span></span> <span class="p-l-sm score"><b>0.0</b>/10</span>
+                      </span> </div>
+                    <div class="clear"></div>
+                  </div>
+                  <div class="hfs">Ratings:
+                    <meta>
+                    <meta> <b style="font-weight:bold;">{{game.rating}}</b>/10 from {{game.rating_count}} users <a href="{{game_obj.stats_url}}" class="text-primary m-l-sm"><i class="fal fa-chart-bar"></i></a>
+                  </div>
+                  <div class="hfs"># of Players: <b>{{game.players}}</b></div>
+                  <div class="hfs">Reviews: <a class="text-primary" href="{{game_obj.reviews_url}}">{{reviews.count}} user{% if reviews.count != 1 %}s{% endif %}</a></div>
+                </div>
+              </div>
+
+              <hr class="m-t-sm m-b-sm">
+
+              <div>
+                <div id="game_description" class="d-none">
+                  {% if game_description|length > 0 %}{% autoescape off %}{{game_description}}{% endautoescape %}{% else %}<p>No description available</p>{% endif %}
+                </div>
+              </div>
+
+              <hr class="m-t-sm m-b-sm">
+
+              <div class="mt-2 show-detailsxss">
+                <ul class="list m-a-0">
+                  <li id="game_series" class="list-item p-a-0">
+                    <b class="inline">Series: </b><span><span class="text-capitalize">
+                      <i class="fa-sm fas fa-circle-notch fa-spin"></i>
+                    </span>
+                    </span>
+                  </li>
+
+                  <li id="game_developers" class="list-item p-a-0"><b class="inline">Developers: </b>
+                    <span><i class="fa-sm fas fa-circle-notch fa-spin"></i> </span>
+                  </li>
+                  <li id="game_publishers" class="list-item p-a-0"><b class="inline">Publishers: </b>
+                    <span><i class="fa-sm fas fa-circle-notch fa-spin"></i> </span>
+                  </li>
+
+                  <li id="game_genres" class="list-item p-a-0"><b class="inline">Genres: </b>
+                    {% if game_obj.genres.all|length > 0 %}
+                    {% for genre in game_obj.genres.all %}
+                    <a class="text-primary" href="{% url 'gamesrec:search' %}?ge={{genre.id}}">{{genre.name}}</a>{% if forloop.counter != game_obj.genres.all|length %}<span>, </span>{% endif %}
+                    {% endfor %}
+                    {% else %}
+                    None
+                    {% endif %}
+                  </li>
+
+                  <li id="game_themes" class="list-item p-a-0"><b class="inline">Themes: </b>
+                    {% if game_obj.themes.all|length > 0 %}
+                    {% for theme in game_obj.themes.all %}
+                    <a class="text-primary" href="{% url 'gamesrec:search' %}?th={{theme.id}}">{{theme.name}}</a>{% if forloop.counter != game_obj.themes.all|length %}<span>, </span>{% endif %}
+                    {% endfor %}
+                    {% else %}
+                    None
+                    {% endif %}
+                  </li>
+
+                  <li id="game_wsites" class="list-item p-a-0"><b class="d-block">Websites: </b>
+                    <span></span>
+                  </li>
+                </ul>
+              </div>
+
+
+
+            </div>
+            <div class="clear"></div>
+          </div>
+
+          <div id="system_req">
+          </div>
+
+        </div>
+      {% else %}
+        {% if tab_name == 'write_review' %}
+          {% comment %}
+          START OF WRITE REVIEW
+          {% endcomment %}
+          <form id="write_review_frm">
+            <div class="write_review_wrapper">
+
+              <div class="box-body pl-4 pr-4">
+                <div class="row m-b m-t">
+                  <div class="col-lg-6 col-md-6 guildline b-r">
+                    <h6 class="header m-b">Step 1: Read Guidelines</h6>
+                    <ul class="guildline">
+                      <li class="p-b">Write your own reviews!</li>
+                      <li class="p-b">Don't include story summaries as users have already read the plot summary.</li>
+                      <li class="p-b">Write <b>why</b> you liked or disliked.</li>
+                      <li class="p-b">Do <b>not</b> post major spoilers as you'll just ruin the show for the readers who are thinking about watching the show.</li>
+                      <li class="p-b">Do <b>not</b> add spoilers to the headline!</li>
+                    </ul>
+                  </div>
+                  <div class="col-lg-6 col-md-6 your-rating">
+                    <h6 class="header m-b">Step 2: Ratings</h6>
+                    <ul class="list">
+                      {% review_rating_ids_names as review_rating_ids_names %}
+                      {% for rev_rating in review_rating_ids_names %}
+                      <li class="list-item p-a-sm">
+                        <div class="row">
+                          <div class="col-lg-4"><b>{{rev_rating.name}}</b></div>
+                          <div class="col-lg-8">
+                            <div id="{{rev_rating.id}}" name="{{rev_rating.h_name}}" class="m-t-xs dstar-wrapper">
+                              <div class="dstar-rating">
+                                <div class="dstar-fill" style="width: 0%;"></div>
+                              </div>
+                              <div class="dstar-right"><strong>0.0</strong>/10
+                              </div>
+                              <div class="dstar-prev" style="display: none;"><span></span></div>
+                            </div>
+                          </div>
+                        </div>
+                      </li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="box-body pl-4 pr-4">
+              <h6 class="header m-b">Step 3: Write Your Review</h6>
+              <div class="form-group">
+                <div class="row">
+                  <div class="col-sm-3"><label>Does this review contain spoilers?</label></div>
+                  <div class="col-sm-9">
+                    {{review_form.spoiler|as_crispy_field}}
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <div class="row">
+                  <div class="col-sm-3"><label>Have you finished playing this game?</label></div>
+                  <div class="col-sm-9">
+                    {{review_form.completed|as_crispy_field}}
+                  </div>
+                </div>
+                <div class="form-group-child ml-5 pt-3 light dropped d-none">
+                  <div class="form-group">
+                    <div class="row">
+                      <div class="col-sm-3"><label>Are you dropping this game?</label></div>
+                      <div class="col-sm-9">
+                        {{review_form.dropped|as_crispy_field}}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <div class="row">
+                  <div class="col-sm-3"><label>Write Your Review</label></div>
+                  <div class="col-sm-9">
+                    <div class="el-textarea">
+                      {% autoescape on %}
+                      {% crispy_field review_form.review_text %}
+                      {% endautoescape %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              </div>
+
+              <div class="box-footer">
+                <button type="submit" class="btn btn-primary"><span>Submit</span></button>
+              </div>
+            </div>
+          </form>
+
+          {% comment %}
+          END OF WRITE REVIEW
+          {% endcomment %}
+        {% elif tab_name == 'reviews' %}
+          <div>
+            <div class="box-header">
+              <div style="display: block;overflow: hidden;">
+                <select class="browser-default custom-select float-left" style="width:138px;" onchange="window.location.href = this.value ">
+                  <option value="{{sort_link}}helpful" {% if sort == 'helpful' %}selected{% endif %}>Most helpful</option>
+                  <option value="{{sort_link}}recent" {% if sort == 'recent' %}selected{% endif %}>Most recent</option>
+                </select>
+                {% if review_exists != -1 and review_exists == False or not request.user.is_authenticated %}
+                <a class="btn btn-primary mt-1 mb-1 float-right write_review_link" href="{{game_obj.write_review_url}}"><span>Write a Review</span></a>
+                {% endif %}
+              </div>
+            </div>
+            <div style="min-height: 50vh;">
+            {% for review in reviews %}
+            <div id="review-{{review.id}}" class="review mb-4">
+              <div class="box-body light b-t b-b p-t-sm p-b-sm">
+                <div class="row no-gutter">
+                  <div class="col-sm-9">
+                    <div class="float-left m-r"> <span class="avatar w-56"> <img class="w-56" src="{% profile_picture_64 review.user %}"> </span> </div>
+                    <div>
+
+                      <div class="float-right show-only-mobile-3">
+                        {% if review.completed %}
+                          <span class="review-tag completed">Completed</span>
+                        {% else %}
+                          {% if review.dropped %}
+                          <span class="review-tag dropped">Dropped</span>
+                          {% else %}
+                          <span class="review-tag played">Played</span>
+                          {% endif %}
+                        {% endif %}
+                      </div>
+
+                      <b><a class="text-primary font-weight-bold" href="{{review.user.profile.url}}">{{review.user.username}}</a></b>
+
+                      <div class="user-stats review_stats_{{review.id}}"><small><b>{{review.helpful_users.count}}</b> people found this review helpful</small>
+                        <i class="review-voted-check review-voted-check-27730"></i>
+                      </div>
+
+                      <div class="more-reviews"> <small><a class="text-primary" href="{{review.user.profile.reviews_url}}">Other reviews by this user</a></small>
+                      </div>
+
+                    </div>
+                  </div>
+                  <div class="col-sm-3 text-sm text-right show-only-lg-3">
+                    <div class="meta"> <small class="datetime">{{review.timestamp.date}}</small>
+                    </div>
+                    <div class="actions">
+                      {% if review.completed %}
+                        <span class="review-tag completed">Completed</span>
+                      {% else %}
+                        {% if review.dropped %}
+                        <span class="review-tag dropped">Dropped</span>
+                        {% else %}
+                        <span class="review-tag played">Played</span>
+                        {% endif %}
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="box-body">
+                <div class="row">
+                  <div class="col-sm-12 review-body" style="height:208px; overflow:hidden;">
+                    <div class="box pull-right text-sm m-a-sm">
+                      <div class="box-header p-t-sm p-b-sm rating-overall"> <b>{{review.r.4.name}} <span class="score pull-right">{{review.ratings_list.4}}</span></b> </div>
+                      <div class="box-body p-t-sm p-b-sm">
+                        <div class="list-group review-rating">
+                          <div>{{review.r.0.name}} <span class="p-l-md pull-right">{{review.ratings_list.0}}</span></div>
+                          <div>{{review.r.1.name}} <span class="p-l-md pull-right">{{review.ratings_list.1}}</span></div>
+                          <div>{{review.r.2.name}} <span class="p-l-md pull-right">{{review.ratings_list.2}}</span></div>
+                          <div>{{review.r.3.name}} <span class="p-l-md pull-right">{{review.ratings_list.3}}</span></div>
+                        </div>
+                      </div>
+                    </div>
+                    {% if review.spoiler %}
+                    <div class="review-spoiler">This review may contain spoilers</div>
+                    {% endif %}
+                    <span class="review_text">
+                      <div class="inner_text">
+                        {% autoescape on %}
+                        {{review.review_text|linebreaks}}
+                        {% endautoescape %}
+                      </div>
+                    </span>
+                    {% if request.user.is_authenticated %}
+                    <div class="review-helpful m-t p-t xb-t mt-5 mb-3"> <!-- style="margin-top:127px !important;" -->
+                      <div class="review-vote review-helpful-{{review.pk}}">
+                        <span class="text-muted">Was this review helpful to you?</span>
+                        <button class="btn btn-xs btn-white light helpful review-cast-helpful {% if request.user in review.helpful_users.all %}voted{% endif %}" data-id="{{review.pk}}" data-label="Yes"><span>Yes</span></button>
+                        <button class="btn btn-xs btn-white light unhelpful review-cast-helpful {% if request.user in review.not_helpful_users.all %}voted{% endif %}" data-id="{{review.pk}}" data-label="No"><span>No</span></button>
+                      </div>
+                    </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+            </div>
+            <div class="box-footer">
+              <nav>
+                <ul id="page-selection" class="pagination pg-blue"></ul>
+              </nav>
+            </div>
+          </div>
+        {% elif tab_name == 'photos' %}
+        <div class="sshot-info p-3"></div>
+        <div id="game_screenshots" class="mb-2 d-none">
+        </div>
+        <div id="blueimp-gallery" class="blueimp-gallery">
+          <div class="slides"></div>
+          <h3 class="title"></h3>
+          <a class="prev">‹</a>
+          <a class="next">›</a>
+          <a class="close">×</a>
+          <a class="play-pause"></a>
+          <ol class="indicator"></ol>
+        </div>
+        {% elif tab_name == 'add_rec' %}
+        <form id="add_rec_frm">
+          <div class="add_rec_wrapper">
+            <div class="box-body pl-3 pr-3">
+              <div class="row">
+                <div class="col-lg-7"><label><b>Similar Title</b></label>
+                  <div class="input-group">
+                    <input type="text" placeholder="Type to search for title" class="form-control similar_search" style="padding-right:2rem;" value="">
+                    <span style="position: absolute; right:.8rem; top:.5rem; z-index:5;"><li class="fa-sm fas fa-search"></li></span>
+                  </div>
+                  <div class="mt-5">
+                    <div class="form-label"><label>How is <b>{{game.name}}</b> similar to <b><span class="sel_game_title">_________</span></b>?</label></div>
+                    <div class="form-group">
+                      <div class="el-textarea">
+                        {% autoescape on %}
+                        {% crispy_field rec_form.rec_text %}
+                        {% endautoescape %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-5">
+                  <div class="row m-b text-center">
+                    <div class="col-sm-6"><b class="text-primary">If you liked</b></div>
+                    <div class="col-sm-6"><b class="text-primary">...then you might like</b></div>
+                  </div>
+                  <div class="row text-center recs-similar-cover">
+                    <div class="col-sm-6">
+                      <a href="{{game.url}}" target="_blank" class="cover">
+                        <div class="cover">
+                          <canvas width="300" height="422" style="width:120px; background-color:black;"></canvas>
+                        </div>
+                      </a>
+                      </div>
+                    <div class="col-sm-6">
+                      <a target="_blank">
+                        <div class="similar_cover">
+                            <canvas width="300" height="422" style="width:120px; background-color:black;"></canvas>
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="box-footer">
+              <button type="button" class="btn btn-primary submit_rec_frm"><span>Submit</span></button>
+            </div>
+          </div>
+        </form>
+        {% elif tab_name == 'recs' %}
+          <div style="min-height: 50vh;">
+            <div class="box-header">
+              <div style="display: block;overflow: hidden;">
+                <a class="btn btn-primary mt-1 mb-1 float-right add_rec_link" href="{{game_obj.add_rec_url}}"><span>Make recommendation</span></a>
+              </div>
+            </div>
+            {% for rec in recsu %}
+            <div id="rec-{{rec.similar_game.id}}" class="box-body mb-4">
+              <div class="row recs-box">
+                <div class="col-xs-2"> <img class="img-responsive" id="recs_cover_{{rec.pk}}" src="{{rec.similar_game.cover}}"> </div>
+                <div class="col-xs-10">
+                  <div class="text-primary">
+                    <span class="float-right m-0 rating-panel">
+                      {% autoescape off %}
+                      {{rec.similar_game.avg_rating|get_readonly_star_tag}}
+                      {% endautoescape %}
+                    </span>
+                    <b><a href="{{rec.similar_game.url}}" id="recs_title_{{rec.pk}}">{{rec.similar_game.title}}</a></b>
+
+                    <a class="btn btn-xs btn-white recs_manage_list" data-id="{{rec.pk}}" data-gid="{{rec.similar_game.pk}}" id="recs_manage_list-{{rec.pk}}"><span><i class="fas fa-plus"></i></span></a>
+                  </div>
+                  <div>
+                    <div class="recs-body">
+                      {% autoescape on %}
+                      {{rec.rec_text|linebreaks}}
+                      {% endautoescape %}
+                      <div class="recs-by">
+                        <span class="jbtn-like" data-id="{{rec.pk}}"><span class="like-cnt">{{rec.likes.count}}</span></span>
+                        <span class="recs-author">Recommended by <a class="text-primary" href="{{rec.user.profile.recs_url}}">{{rec.user.username}}</a></span>
+                      </div>
+                    </div>
+                    <div id="more-recs-{{rec.pk}}" class="more-recs-container">
+                      {% if rec.more|length > 0 %}
+                      <a class="text-primary more-recs_toggle text-primary" data-id="{{rec.pk}}" data-state="hidden">
+                        Read recommendations by {{rec.more|length}} more user(s)
+                      </a>
+                      {% endif %}
+                      <div class="more_recs d-none">
+                        {% for rec_more in rec.more %}
+                        <div class="recs-body">
+                          {% autoescape on %}
+                          {{rec_more.rec_text|linebreaks}}
+                          {% endautoescape %}
+                          <div class="recs-by">
+                            <span class="jbtn-like" data-id="{{rec_more.pk}}"><span class="like-cnt">{{rec_more.likes.count}}</span></span>
+                            <span class="recs-author">Recommended by <a class="text-primary" href="{{rec_more.user.profile.recs_url}}">{{rec_more.user.username}}</a></span>
+                          </div>
+                        </div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="box-footer">
+            <nav>
+              <ul id="page-selection" class="pagination pg-blue"></ul>
+            </nav>
+          </div>
+        {% elif tab_name == 'statistics' %}
+          <div  style="min-height:50vh;">
+            <div id="activities_highchart" class="highchart_chart"><div class="text-center p-5"><i class="fal fa-3x fa-circle-notch fa-spin fast-spin"></i></div></div>
+            <div id="pie_highcharts" class="highchart_chart"></div>
+            <div id="bar_highcharts1" class="highchart_chart"></div>
+            <div id="bar_highcharts2" class="highchart_chart"></div>
+          </div>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    {% if tab_name == None %}
+
+
+    <div class="box sys_req">
+      <div class="box-header light-b-dk">
+        <a><h3>System Requirements <i class="arrow_ float-right fas fa-angle-down"></i></h3></a>
+      </div>
+      <div class="box-body d-none">
+      </div>
+    </div>
+
+
+
+    <div class="box photos_box" style="height:249px;">
+
+      <div class="box-header light-b-dk">
+        <h3>Photos</h3>
+      </div>
+
+      <div class="box-tool"><a href="{{game_obj.photos_url}}" class="text-info sshot-info">View all (<span><i class="fa-sm fas fa-circle-notch fa-spin" id="status_spinner"></i></span>)</a></div>
+
+      <div id="game_screenshots" class="mb-2 d-none" data-layout="33">
+
+      </div>
+      <div id="blueimp-gallery" class="blueimp-gallery">
+        <div class="slides"></div>
+        <h3 class="title"></h3>
+        <a class="prev">‹</a>
+        <a class="next">›</a>
+        <a class="close">×</a>
+        <a class="play-pause"></a>
+        <ol class="indicator"></ol>
+      </div>
+    </div>
+
+    <div class="box videos_box" style="height:249px;">
+      <div class="box-header light-b-dk">
+        <h3>Videos</h3>
+      </div>
+      <div class="box-tool"><span class="text-muted video-text-info"><span><i class="fa-sm fas fa-circle-notch fa-spin" id="status_spinner"></i></span></span></div>
+      <div class="box-body">
+        <div class="row p-l-sm p-r-sm">
+          <div id="game_videos_parent" class="swiper-container d-none">
+
+            <div id="game_videos" class="swiper-wrapper">
+            {% autoescape off %}
+            <div id="gl-videos" class="d-none">
+            </div>
+            {% endautoescape %}
+            </div>
+
+            <div class="swiper-button-next" tabindex="0" role="button" aria-label="Next slide" aria-disabled="false"></div>
+            <div class="swiper-button-prev" tabindex="0" role="button" aria-label="Previous slide" aria-disabled="false"></div>
+            <span class="swiper-notification" aria-live="assertive" aria-atomic="true"></span>
+
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="box-header light-b-dk">
+        <h3>Reviews</h3>
+      </div>
+      <div class="box-tool"><a href="{{game_obj.write_review_url}}" class="text-info write_review_link">Write Review</a></div>
+      <div>
+        {% for review in reviews|slice:"0:2" %}
+        <div id="review-{{review.id}}" class="review mb-4">
+          <div class="box-body light b-t b-b p-t-sm p-b-sm">
+            <div class="row no-gutter">
+              <div class="col-sm-9">
+                <div class="float-left m-r"> <span class="avatar w-56"> <img class="w-56" src="{% profile_picture_64 review.user %}"> </span> </div>
+                <div>
+
+                  <div class="float-right show-only-mobile-3">
+                    {% if review.completed %}
+                      <span class="review-tag completed">Completed</span>
+                    {% else %}
+                      {% if review.dropped %}
+                      <span class="review-tag dropped">Dropped</span>
+                      {% else %}
+                      <span class="review-tag played">Played</span>
+                      {% endif %}
+                    {% endif %}
+                  </div>
+
+                  <b><a class="text-primary font-weight-bold" href="{{review.user.profile.url}}">{{review.user.username}}</a></b>
+
+                  <div class="user-stats review_stats_{{review.id}}"><small><b>{{review.helpful_users.count}}</b> people found this review helpful</small>
+                    <i class="review-voted-check review-voted-check-27730"></i>
+                  </div>
+
+                  <div class="more-reviews"> <small><a class="text-primary" href="{{review.user.profile.reviews_url}}">Other reviews by this user</a></small>
+                  </div>
+
+                </div>
+              </div>
+              <div class="col-sm-3 text-sm text-right show-only-lg-3">
+                <div class="meta"> <small class="datetime">{{review.timestamp.date}}</small>
+                </div>
+                <div class="actions">
+                  {% if review.completed %}
+                    <span class="review-tag completed">Completed</span>
+                  {% else %}
+                    {% if review.dropped %}
+                    <span class="review-tag dropped">Dropped</span>
+                    {% else %}
+                    <span class="review-tag played">Played</span>
+                    {% endif %}
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="box-body">
+            <div class="row">
+              <div class="col-sm-12 review-body" style="height:208px; overflow:hidden;">
+                <div class="box pull-right text-sm m-a-sm">
+                  <div class="box-header p-t-sm p-b-sm rating-overall"> <b>{{review.r.4.name}} <span class="score pull-right">{{review.ratings_list.4}}</span></b> </div>
+                  <div class="box-body p-t-sm p-b-sm">
+                    <div class="list-group review-rating">
+                      <div>{{review.r.0.name}} <span class="p-l-md pull-right">{{review.ratings_list.0}}</span></div>
+                      <div>{{review.r.1.name}} <span class="p-l-md pull-right">{{review.ratings_list.1}}</span></div>
+                      <div>{{review.r.2.name}} <span class="p-l-md pull-right">{{review.ratings_list.2}}</span></div>
+                      <div>{{review.r.3.name}} <span class="p-l-md pull-right">{{review.ratings_list.3}}</span></div>
+                    </div>
+                  </div>
+                </div>
+                {% if review.spoiler %}
+                <div class="review-spoiler">This review may contain spoilers</div>
+                {% endif %}
+                <span class="review_text">
+                  <div class="inner_text">
+                    {% autoescape on %}
+                    {{review.review_text|linebreaks}}
+                    {% endautoescape %}
+                  </div>
+                </span>
+                {% if request.user.is_authenticated %}
+                <div class="review-helpful m-t p-t xb-t mt-5 mb-3"> <!-- style="margin-top:127px !important;" -->
+                  <div class="review-vote review-helpful-{{review.pk}}">
+                    <span class="text-muted">Was this review helpful to you?</span>
+                    <button class="btn btn-xs btn-white light helpful review-cast-helpful {% if request.user in review.helpful_users.all %}voted{% endif %}" data-id="{{review.pk}}" data-label="Yes"><span>Yes</span></button>
+                    <button class="btn btn-xs btn-white light unhelpful review-cast-helpful {% if request.user in review.not_helpful_users.all %}voted{% endif %}" data-id="{{review.pk}}" data-label="No"><span>No</span></button>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        {% if reviews.count > 0 %}
+        <div class="box-footer text-center light" style="border-top: var(--border-1);"> <a href="{{game_obj.reviews_url}}" class="text-primary">View all</a> </div>
+        {% else %}
+        <div class="box-body pl-3">
+          <span>There have been no reviews submitted. <a class="text-primary write_review_link" href="{{game_obj.write_review_url}}">Be the first and write one.</a></span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="box-header light-b-dk">
+        <h3>Recommendations</h3>
+      </div>
+      <div class="box-tool"><a href="{{game_obj.add_rec_url}}" class="text-info add_rec_link">Add Recommendations</a></div>
+      <div>
+        {% if recsu|length > 0 %}
+        <div class="row p-l-sm p-r-sm mb-4 mt-2">
+        {% else %}
+        <div class="row p-l-sm p-r-sm">
+        {% endif %}
+        {% for rec in recsu|slice:"0:6" %}
+          <div class="rec-item col-xs-4 col-sm-4 col-md-2 p-a-xs">
+            <a href="{{rec.similar_game.url}}" title="{{rec.similar_game.title}}">
+              <img class="img-responsive" src="{{rec.similar_game.cover}}">
+            </a>
+          </div>
+        {% endfor %}
+        </div>
+        {% if recsu|length > 0 %}
+        <div class="box-footer text-center light" style="border-top: var(--border-1);"> <a href="{{game_obj.recs_url}}" class="text-primary">View all</a> </div>
+        {% else %}
+        <div class="box-body pl-3">
+          <span>There have been no recommendations added. <a class="text-primary add_rec_link" href="{{game_obj.add_rec_url}}">Be the first and add one.</a></span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% endif %}
+
+  </div>
+
+  {% comment %} END OF GAME_COL1 {% endcomment %}
+
+  {% if details %}
+
+  <div id="game_col2" class="col-lg-4 col-md-4 {% if tab_name != None %}show-only-lg-2{% endif %}">
+    <div class="content-side hidden-sm-down">
+
+      {% if tab_name != None %}
+      <div class="box clear hidden-sm-down show-only-lg">
+        <div class="game-cover cover box-body light-b">
+
+          <a style="display: block;" title="{{game.name}}">
+            <canvas id="game-cover-img" class="img-responsive" width="300" height="422" style="background-color:black;"></canvas>
+          </a>
+
+          <div class="m-b-sm mt-3">
+            <button id="btn-trailer" class="btn-block btn btn-white"><i class="fa-sm fas fa-circle-notch fa-spin mr-2"></i> Loading Trailers</button>
+            <div id="igdb_trailers" class="d-none">
+            </div>
+          </div>
+
+          <div id="group-manage-list" class="btn-group group-manage-list dropdown m-b-sm btn-block">
+            <!-- col-xs-10 col-sm-9 -->
+            <button id="add_to_list" class="btn m-b-sm btn-white btn-manage-list main col-xs-12 col-sm-12">
+              {% if request.user.is_authenticated %}
+                <i class="fa-sm fas fa-circle-notch fa-spin mr-2" id="status_spinner"></i> Status
+              {% else %}
+              <i class="far fa-plus"></i> Add to List
+              {% endif %}
+            </button>
+            {% comment %}
+            <button class="btn m-b-sm btn-white btn-clist col-xs-2 col-sm-3" data-toggle="dropdown"><i class="fa fa-list"></i></button>
+            {% endcomment %}
+          </div>
+
+          <!-- <button type="button" data-toggle="modal" data-target="#atlModal">Launch modal</button> -->
+
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="box clear hidden-sm-down">
+        <div class="box-header primary">
+          <h3>Details</h3>
+        </div>
+        <div class="box-body light-b">
+          <ul class="list mb-0">
+            <li class="list-item p-a-0"><b class="inline">Game: </b><span>{{game.name}}</span></li>
+            <li id="detail_initial_release" class="list-item p-a-0"><b class="inline">Release Date: </b><span>{{game.first_release_date}}</span></li>
+            <li id="detail_game_modes" class="list-item p-a-0"><b class="inline">Modes: </b>
+              <span>
+                {% if game_obj.game_modes.all|length > 0 %}
+                {% for mode in game_obj.game_modes.all %}
+                    {% if forloop.counter == game_obj.game_modes.all|length %}
+                    <a href="{% url 'gamesrec:search' %}?gm={{mode.id}}" class="text-primary">{{mode.name}}</a>
+                    {% else %}
+                    <a href="{% url 'gamesrec:search' %}?gm={{mode.id}}" class="text-primary">{{mode.name}}</a>,
+                    {% endif %}
+                {% endfor %}
+                {% else %}
+                None
+                {% endif %}
+              </span>
+            </li>
+
+            <li id="detail_player_persp" class="list-item p-a-0"><b class="inline">Perspective: </b>
+              <span>
+                {% if game_obj.player_perspectives.all|length > 0 %}
+                {% for persp in game_obj.player_perspectives.all %}
+                    {% if forloop.counter == game_obj.player_perspectives.all|length %}
+                    <a href="{% url 'gamesrec:search' %}?pp={{persp.id}}" class="text-primary">{{persp.name}}</a>
+                    {% else %}
+                    <a href="{% url 'gamesrec:search' %}?pp={{persp.id}}" class="text-primary">{{persp.name}}</a>,
+                    {% endif %}
+                {% endfor %}
+                {% else %}
+                None
+                {% endif %}
+              </span>
+            </li>
+
+            <li id="detail_platforms" class="list-item p-a-0"><b class="inline">Platforms: </b>
+              {% if game_obj.platforms.all|length > 0 %}
+              {% for platform in game_obj.platforms.all %}
+              <!-- <span>{% if platform.id|in_arr %}<a class="text-primary" href="{% url 'gamesrec:search' %}?pl={{platform.id}}">{{platform.name}}</a>{% else %}{{platform.name}}{% endif %}</span>{% if forloop.counter != igdb.platforms|length %}<span>, </span>{% endif %} -->
+              <span><a class="text-primary" href="{% url 'gamesrec:search' %}?pl={{platform.id}}">{{platform.name}}</a></span>{% if forloop.counter != game_obj.platforms.all|length %}<span>, </span>{% endif %}
+              {% endfor %}
+              {% else %}
+              None
+              {% endif %}
+            </li>
+
+            <li id="detail_age_rating" class="list-item p-a-0"><b class="inline">Age rating: </b>
+              {% autoescape off %}
+              {% if age_ratings_els != None %}
+              <div class="mt-2">
+                {{age_ratings_els}}
+              </div>
+              {% else %}
+              <span>Not Yet Rated</span>
+              {% endif %}
+              {% endautoescape %}
+            </li>
+            {% comment %} <li class="list-item p-a-0 content-rating"><b class="inline">Rating:</b> Not Yet Rated</li> {% endcomment %}
+          </ul>
+        </div>
+      </div>
+      <div class="box clear hidden-sm-down">
+        <div class="box-header primary">
+          <h3>Statistics</h3>
+        </div>
+        <div class="box-body light-b">
+          <ul class="list mb-0">
+            <li class="list-item p-a-0"><b class="inline">Score:</b> {{game.rating}} <span class="hft">(scored by {{game.rating_count}} users)</span></li>
+            <li class="list-item p-a-0"><b class="inline">Popularity:</b> #{{game.popularity}}</li>
+            <li class="list-item p-a-0"><b class="inline">Players:</b> {{game.players}}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  {% endif %}
+
+</div>
+
+{% if tab_name == None %}
+
+<div id="game_container" class="row">
+  <div id="game_col1_b" class="col-lg-8 col-md-8 col-right">
+
+    <div id="cmtsapp" pid="6753" ptype="title" title="" class="box comments-box post-comments el-loading-parent--relative" style="min-height: 50vh;">
+      <div class="box-header b-b">
+        <h3><span class="total_comments_count"></span> Comment(s)</h3>
+      </div>
+      {% if not request.user.is_authenticated %}
+      <div class="box-body b-b clear light">
+        <div><a href="/signin" class="text-primary quick-login">Login</a> or <a href="/signup" class="text-primary">Register</a> to post comments</div>
+      </div>
+      {% endif %}
+
+      {% include "gamesrec/components/_comments.html" with type_name='GameComment' t_id=game.id %}
+
+    </div>
+
+  </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{% block css %}
+
+<style>
+
+  .fast-spin {
+  -webkit-animation: fa-spin .9s infinite linear;
+  animation: fa-spin .9s infinite linear;
+}
+
+  .highchart_chart{
+    margin-bottom:5rem;
+  }
+
+  .highcharts-data-table table {
+  	font-family: Verdana, sans-serif;
+  	border-collapse: collapse;
+  	border: 1px solid #EBEBEB;
+  	margin: 10px auto;
+  	text-align: center;
+  	width: 100%;
+  	max-width: 500px;
+  }
+  .highcharts-data-table caption {
+      padding: 1em 0;
+      font-size: 1.2em;
+      color: #555;
+  }
+  .highcharts-data-table th {
+  	font-weight: 600;
+      padding: 0.5em;
+  }
+  .highcharts-data-table td, .highcharts-data-table th, .highcharts-data-table caption {
+      padding: 0.5em;
+  }
+  .highcharts-data-table thead tr, .highcharts-data-table tr:nth-child(even) {
+      background: #f8f8f8;
+  }
+  .highcharts-data-table tr:hover {
+      background: #f1f7ff;
+  }
+
+  .highcharts-text-outline{
+    stroke: transparent;
+  }
+
+
+  input[type="number"] {
+  	min-width: 50px;
+  }
+  .highcharts-credits{
+    display:none;
+  }
+
+  /* RECSU */
+
+  .recs-box .more-recs-container {
+    margin-top: 5px;
+  }
+
+  .col-xs-2 {
+      float: left;
+      width: 16.66667%;
+  }
+
+  .col-xs-10 {
+      float: left;
+      width: 83.33333%;
+  }
+  /* END OF RECSU */
+
+  /* SIMILAR SEARCH */
+
+  .similar-autocomplete-suggestions::-webkit-scrollbar {
+    width: .5em;
+    z-index:5;
+    background-color: inherit;
+  }
+
+  .similar-autocomplete-suggestions::-webkit-scrollbar-track {
+    border-radius: 10px;
+  }
+
+  .similar-autocomplete-suggestions::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    background: var(--scroll-bg);
+  }
+
+  .similar-autocomplete-suggestions::-webkit-scrollbar-thumb:active {
+    background: var(--text-color);
+  }
+
+  .similar-autocomplete-suggestions {
+    text-align: left;
+    cursor: default;
+    /* border: 1px solid #ccc; */
+    border-top: 0;
+    background: var(--dropdown-bg);
+    box-shadow: 2px 4px 12px rgba(0, 0, 0, 0.4);
+    /* core styles should not be changed */
+    position: absolute;
+    display: none;
+    z-index: 9999;
+    max-height: 254px;
+    left:0;
+    overflow: hidden;
+    overflow-y: auto;
+    box-sizing: border-box;
+    border-radius: 0px 0px 5px 5px !important;
+
+
+
+
+
+
+    /* text-align: left;
+    cursor: default;
+    border: 1px solid #ccc;
+    border-top: 0;
+    background: #fff;
+    box-shadow: -1px 1px 3px rgba(0, 0, 0, .1);
+
+    position: absolute;
+    display: none;
+    z-index: 9999;
+    max-height: 254px;
+    overflow: hidden;
+    overflow-y: auto;
+    box-sizing: border-box; */
+  }
+
+  .similar-autocomplete-suggestion {
+    cursor:pointer;
+    position: relative;
+    padding: 5px 20px !important;
+    padding-top: 7px !important;
+    padding-bottom: 7px !important;
+    /* padding: 0 .6em; */
+    /* line-height: 30px; */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
+    color: var(--text-color);
+    font-weight:bold;
+  }
+
+  .similar-autocomplete-suggestion b {
+    font-weight: normal !important;
+    /* color: #1f8dd6; */
+  }
+
+  .similar-autocomplete-suggestion.selected {
+    background: var(--dropdown-hover-bg);
+    color: var(--text-color);
+  }
+
+  /* END OF SIMILAR SEARCH */
+
+  .voted{
+    border: 1px solid #92d07a !important;
+    color: #71c151;
+  }
+
+  .voted:hover{
+    border: 1px solid #92d07a !important;
+    color: #71c151;
+  }
+
+
+  .read-more_review {
+      font-weight: bolder;
+      color:var(--link-color)!important;
+      letter-spacing: 1px;
+      font-size: 14px;
+      text-transform: capitalize;
+      cursor: pointer;
+      margin-left:16px;
+      width: 100%;
+      text-align: left;
+      margin: 0;
+      padding: 20px 0 0 8px;
+      background-size: 100%;
+      background-image: var(--grad1);
+      position: absolute;
+      margin-top: 178px;
+      left: 0;
+      padding-left: 16px;
+  }
+
+
+ /* Write Review */
+  .p-a-sm {
+      padding: .5rem!important;
+  }
+  .m-b, .m-y {
+    margin-bottom: 16px!important;
+  }
+
+  .m-t, .m-y {
+      margin-top: 16px!important;
+  }
+
+  .write_review_wrapper .row{
+    margin-left: 0px !important;
+  }
+
+  .write_review_wrapper .form-check{
+    display: inline-block !important;
+    margin-left: 2.5rem;
+  }
+
+  /* end of write review */
+
+  /* ESRB AGE_RATING */
+
+  /*('/assets/gamesrec/images/esrb_age_rating.png')*/
+
+  .esrb_6 {
+      width: 60px; height: 81px;
+      background: url("{% static '/gamesrec/images/esrb_age_rating.png' %}") -1px -1px;
+  }
+
+  .esrb_7 {
+      width: 60px; height: 81px;
+      background: url("{% static '/gamesrec/images/esrb_age_rating.png' %}") -63px -1px;
+  }
+
+  .esrb_8 {
+      width: 60px; height: 81px;
+      background: url("{% static '/gamesrec/images/esrb_age_rating.png' %}") -125px -1px;
+  }
+
+  .esrb_9 {
+      width: 60px; height: 81px;
+      background: url("{% static '/gamesrec/images/esrb_age_rating.png' %}") -187px -1px;
+  }
+
+  .esrb_10 {
+      width: 60px; height: 81px;
+      background: url("{% static '/gamesrec/images/esrb_age_rating.png' %}") -249px -1px;
+  }
+
+  .esrb_11 {
+      width: 60px; height: 81px;
+      background: url("{% static '/gamesrec/images/esrb_age_rating.png' %}") -311px -1px;
+  }
+
+  .esrb_12 {
+      width: 60px; height: 81px;
+      background: url("{% static '/gamesrec/images/esrb_age_rating.png' %}") -373px -1px;
+  }
+
+  /* END OF ESRB AGE_RATING */
+
+
+  /* PG AGE_RATING */
+
+  /* ('/assets/gamesrec/images/pg_age_rating.png') */
+  .pg_1 {
+      width: 60px; height: 73px;
+      background: url("{% static '/gamesrec/images/pg_age_rating.png' %}") -1px -1px;
+  }
+
+  .pg_2 {
+      width: 60px; height: 73px;
+      background: url("{% static '/gamesrec/images/pg_age_rating.png' %}") -63px -1px;
+  }
+
+  .pg_3 {
+      width: 60px; height: 73px;
+      background: url("{% static '/gamesrec/images/pg_age_rating.png' %}") -125px -1px;
+  }
+
+  .pg_4 {
+      width: 60px; height: 73px;
+      background: url("{% static '/gamesrec/images/pg_age_rating.png' %}") -187px -1px;
+  }
+
+  .pg_5 {
+      width: 60px; height: 73px;
+      background: url("{% static '/gamesrec/images/pg_age_rating.png' %}") -249px -1px;
+  }
+
+
+  /* END OF PG AGE_RATING */
+
+
+#game_description{
+  margin-bottom: 15px;
+}
+
+#game_description h3{
+  font-size: 12pt;
+  font-weight: bold;
+}
+
+.read-more__link {
+    font-weight: bolder;
+    color:#6c757d!important;
+    letter-spacing: 1px;
+    font-size: 14px;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.col-game-rating .box {
+    width: 76px;
+    height: 76px;
+    font-size: 28px;
+    text-align: center;
+    line-height: 75px;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -moz-box-shadow: 0 1px 1px 0 rgba(0,0,0,0.25);
+    -webkit-box-shadow: 0 1px 1px 0 rgba(0,0,0,0.25);
+    box-shadow: 0 1px 1px 0 rgba(0,0,0,0.25);
+}
+
+.col-game-rating{
+  padding-left: 0px !important;
+}
+
+.box-body{
+  padding: .7rem .6rem;
+}
+.box-navbar {
+    padding-bottom: 0;
+    padding-top: 0;
+    margin-bottom: .7rem;
+}
+
+.box-header {
+    position: relative;
+}
+
+#game_col1 .row{
+  margin-left: 0px !important;
+  margin-right: 0px !important;
+}
+
+#game_col1_b .row{
+  margin-left: 0px !important;
+  margin-right: 0px !important;
+}
+
+.row.no-gutter {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.row.no-gutter [class*=col-] {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.row.no-gutter .col-xs-8 {
+    float: left;
+    width: 66.66667%;
+}
+
+.nav-tabs {
+    border-bottom: 1px solid #dee2e6;
+}
+.nav {
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap;
+    padding-left: 0;
+    margin-bottom: 0;
+    list-style: none;
+}
+
+.box-navbar>ul {
+    margin: 0 -16px;
+    border-bottom: 1px solid rgba(120,130,140,0.13);
+}
+
+.box-navbar h1 {
+    padding-top: 16px;
+    font-size: 24px;
+}
+
+.btn-group>.btn, .btn-group-vertical>.btn {
+    position: relative;
+    float: left;
+}
+
+.group-manage-list>.btn {
+    font-weight: bold;
+    color: var(--content-light-text-color);
+    background-color: var(--theme-bg-color) !important;
+}
+
+.btn-group>.btn:first-child {
+    margin-left: 0;
+}
+
+.btn-group, .btn-group-vertical {
+    position: relative;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.btn-group .btn+.btn, .btn-group .btn+.btn-group, .btn-group .btn-group+.btn, .btn-group .btn-group+.btn-group {
+    margin-left: -1px;
+}
+
+.btn{
+  outline: 0!important;
+}
+
+@media (min-width: 992px)
+{
+  #game_container .col-right {
+      float: right;
+  }
+  #game_container{
+    display: unset;
+  }
+}
+
+
+@media (min-width: 992px)
+{
+  #game_container .col-lg-4 {
+      float: left;
+      width: 33.33333%;
+  }
+}
+
+@media (min-width: 768px)
+{
+  #game_container .col-md-4 {
+      float: left;
+      width: 33.33333%;
+  }
+}
+
+#game_container {
+    margin-left: -12px;
+    margin-right: -12px;
+}
+
+#game_container [class*=col-] {
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+@media (max-width: 61.9em)
+{
+  #game_container [class*=col-] {
+      padding-left: 8px;
+      padding-right: 8px;
+  }
+}
+
+@media (max-width: 575px)
+{
+  #game_container > [class*=col-] {
+      padding-left: 0;
+      padding-right: 0;
+  }
+}
+
+@media (max-width: 61.9em)
+{
+  #game_container {
+      margin-left: -8px;
+      margin-right: -8px;
+  }
+}
+
+@media (max-width: 47.9em)
+{
+  #game_container {
+      margin-left: -4px;
+      margin-right: -4px;
+  }
+}
+
+
+@media (max-width: 35.99em)
+{
+  #group-manage-list .col-xs-10 {
+      float: left;
+      width: 83.33333%;
+  }
+
+  #group-manage-list .col-xs-2 {
+      float: left;
+      width: 16.66667%;
+  }
+
+}
+
+.list-item{
+  padding: 0px;
+}
+
+#game_tabs li{
+  line-height: unset;
+}
+
+#game_tabs li .nav-link{
+  padding: .5rem .8rem;
+}
+
+.video_title{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+@media (min-width:992px) {
+  #game_container > #game_col1{
+    padding-right:0px;
+  }
+
+  #game_container > #game_col2{
+    padding-left:0px;
+  }
+
+  #game_container > #game_col1_b{
+    padding-right:0px;
+  }
+}
+
+
+</style>
+
+{% endblock %}

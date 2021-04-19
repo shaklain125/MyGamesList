@@ -1,0 +1,130 @@
+{% load static %}
+
+{% load custom_tags %}
+
+{% load crispy_forms_tags %}
+{% load crispy_forms_field %}
+
+
+<div>
+  <div id="atlModal" class="modal" id="centralModalSm" role="dialog" aria-labelledby="atlModalLabel" style="    position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      overflow-y:scroll;
+      z-index:770;
+      margin: 0;
+  " aria-hidden="true">
+
+    <!-- Change class .modal-sm to change the size of the modal -->
+    <div class="modal-dialog modal-lg" id="atl_modal" style="
+      position: relative;
+      margin: 0 auto 50px;
+      background: #fff;
+      border-radius: 2px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.3);
+      box-sizing: border-box;margin-top: 10vh;" role="document">
+
+
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="el-dialog__title mr-4" id="atl_title"></span>
+          <button type="button" class="el-dialog__headerbtn close_modal" style="color:var(--box-text-color) !important;">
+            <i class="fal fa-times"></i>
+          </button>
+        </div>
+        <form id="atl-form">
+          {% csrf_token %}
+          <div class="modal-body" style="padding: 30px 20px;font-size: 14px;">
+            <!-- $($('.atl-form')[0]).find(':input').serializeArray() -->
+            <div id="modal_body_inner" style="min-height: 408px;">
+              <div class="row-col">
+                <div class="col-sm-3 light atl_col">
+                  <div class="padding hidden-xs-down p-b-0">
+                    <canvas id="atl-cover-img" class="img-responsive" width="300" height="422" style="background-color:black;"></canvas>
+                  </div>
+
+                  <div class="left-menu padding pos-rlt">
+                    <div class="nav-active-primary">
+                      <div class="nav nav-pills nav-sm">
+                        <a class="nav-link active">General</a>
+                        <a class="nav-link">History</a>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+                <div class="col-sm-9 atl_col">
+                  <div class="padding">
+
+                    <div class="form-group">
+                      <div class="row">
+                        <div class="col-sm-3"><label for="username" class="control-label"><b>{{atl_form.status.label}}</b></label></div>
+                        <div class="col-sm-5">
+                          {% crispy_field atl_form.status %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="form-group">
+
+                      <div class="row">
+                        <div class="col-sm-3"><label for="rating" class="control-label"><b>{{atl_form.rating.label}}</b></label></div>
+                        <div class="col-sm-9">
+                          <div class="row">
+
+                            <div class="col-sm-3 col-xs-3" style="padding-left: 0;">
+                              {% crispy_field atl_form.rating %}
+                            </div>
+                            <div class="col-sm-9 col-xs-9">
+                              <div class="m-t-xs dstar-wrapper">
+                                <div class="dstar-rating">
+                                  <div class="dstar-fill" style="width: 100%;"></div>
+                                </div>
+                                <div class="dstar-right"><strong></strong>/10
+                                </div>
+                                <div class="dstar-prev" style="display: none;"><span></span></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    <div class="form-group mt-5">
+                      <div class="row">
+                        <div class="col-sm-3"><label for="note" class="control-label"><b>{{atl_form.notes.label}}</b></label></div>
+                        <div class="col-sm-9">
+                          <div class="el-textarea">
+                            <!-- <textarea class="el-textarea__inner" style="min-height: 75px; height: 75px;"></textarea> -->
+                            {% crispy_field atl_form.notes %}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- <div class="modal-footer"></div> -->
+          <div class="el-dialog__footer">
+            <div class="dialog-footer">
+              <button type="button" id="delete_modal" class="pull-left btn btn-danger is-plain"><span>Delete</span></button>
+              <button type="button" id="cancel_modal" class="btn btn-white close_modal"><span>Cancel</span></button>
+              <button type="submit" class="btn btn-primary"><span>Submit</span></button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+  </div>
+</div>
