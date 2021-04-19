@@ -3,7 +3,7 @@ A web-based games recommender system
 <br>
 **Open settings.py inside gamesproject folder and set PRODUCTION to False if it is not set**
 
-# WINDOWS
+## WINDOWS
 
 #Install python 3.6 if windows doesn't have it (python 3.7 may or may not work)
 
@@ -32,9 +32,9 @@ python -m virtualenv  environment_windows --python=python && environment_windows
 
 
 
-# LINUX
+## LINUX
 
-#Install python 3.6 on linux
+### Install python 3.6 on linux
 cd /opt
 sudo wget https://www.python.org/ftp/python/3.6.9/Python-3.6.9.tgz
 sudo tar -xvf Python-3.6.9.tgz && cd Python-3.6.8 && sudo ./configure && sudo make && sudo make install
