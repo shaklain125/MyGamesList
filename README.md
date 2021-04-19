@@ -23,7 +23,7 @@ https://www.python.org/ftp/python/3.6.8/python-3.6.8-amd64.exe
 http://pip.readthedocs.io/en/stable/installing/#do-i-need-to-install-pip
 
 ### Install virtualenv
-`pip install virtualenv`
+```pip install virtualenv```
 
 ### Remove directory environment if exists
 `rd /s /q environment_windows`
