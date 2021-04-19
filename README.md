@@ -1,7 +1,7 @@
 # MyGamesList
 A web-based games recommender system
 <div>
-  <img src="https://github.com/shaklain125/MyGamesList/blob/master/screenshots/home.png?raw=true" style="width: 100%;height: 800px;object-fit: cover;object-position: top;"/>
+  <img src="https://github.com/shaklain125/MyGamesList/blob/master/screenshots/home.png?raw=true" style="max-width:100%;width: 100%;height: 500px;object-fit: cover;object-position: top;"/>
   <br>
 </div>
 
