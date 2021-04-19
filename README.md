@@ -2,7 +2,6 @@
 A web-based games recommender system
 <div>
   <br>
-  <br>
 </div>
 
 ### Open settings.py inside gamesproject folder and set PRODUCTION to False if it is not set
