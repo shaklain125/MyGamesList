@@ -4,7 +4,8 @@ A web-based games recommender system
   <br>
   <br>
 </div>
-**Open settings.py inside gamesproject folder and set PRODUCTION to False if it is not set**
+
+### Open settings.py inside gamesproject folder and set PRODUCTION to False if it is not set
 
 ## WINDOWS
 
