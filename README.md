@@ -4,9 +4,6 @@ A web-based games recommender system
 #Open settings.py inside gamesproject folder 
 #and 
 #set PRODUCTION to False if it is not set
-# if you are accessing remotely then set these values
-#set REMOTE_DB to True and REMOTE_DB_IP to '92.0.165.11'
-#Contact me if database is not running and i will start it (OR any other queries)
 
 ########################################## WINDOWS ###############################################
 
@@ -44,22 +41,22 @@ cd /opt
 sudo wget https://www.python.org/ftp/python/3.6.9/Python-3.6.9.tgz
 sudo tar -xvf Python-3.6.9.tgz && cd Python-3.6.8 && sudo ./configure && sudo make && sudo make install
 
-###################################  NOTE  ########################################################
-#IF YOU GET THIS ERROR THEN RUN THE FOLLOWING
-#....: UserWarning: Could not import the lzma module. Your installed Python is incomplete....
+##NOTE
+##IF YOU GET THIS ERROR THEN RUN THE FOLLOWING
+##....: UserWarning: Could not import the lzma module. Your installed Python is incomplete....
 
 sudo apt-get install liblzma-dev && cd /opt/Python-3.6.9 && sudo ./configure && sudo make && sudo make install
 source ./environment/bin/activate
 
 ##################################  END NOTE  #####################################################
 
-#Install pip from site if python doesn't have it
+##Install pip from site if python doesn't have it
 http://pip.readthedocs.io/en/stable/installing/#do-i-need-to-install-pip
 
-#Install virtualenv
+##Install virtualenv
 pip install virtualenv --user
 
-#Remove directory environment if exists
+##Remove directory environment if exists
 rm -r environment_linux
 
 
@@ -68,10 +65,10 @@ python3 -m virtualenv  environment_linux --python=python3.6 && source ./environm
 
 --------------------------------------------------------------------------------------------------------------
 
-#Run App
+##Run App
 python manage.py runserver 0.0.0.0:8080
 
-#go to 
+##go to 
 http://127.0.0.1:8080/
 
 
