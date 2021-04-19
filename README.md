@@ -74,7 +74,7 @@ http://127.0.0.1:8080/
 
 
 -------------------------------------------------------
-# IMPORTANT WHEN DEPLOYING:
+## IMPORTANT WHEN DEPLOYING:
 Both environments are needed for deployment
 linux environment is needed to manage backend and cron jobs 
 windows environment is needed to run apache
