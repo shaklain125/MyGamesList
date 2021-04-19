@@ -1,9 +1,7 @@
 # MyGamesList
 A web-based games recommender system
 <br>
-#Open settings.py inside gamesproject folder 
-#and 
-#set PRODUCTION to False if it is not set
+**Open settings.py inside gamesproject folder and set PRODUCTION to False if it is not set**
 
 ########################################## WINDOWS ###############################################
 
@@ -50,13 +48,13 @@ source ./environment/bin/activate
 
 ##################################  END NOTE  #####################################################
 
-##Install pip from site if python doesn't have it
+## Install pip from site if python doesn't have it
 http://pip.readthedocs.io/en/stable/installing/#do-i-need-to-install-pip
 
-##Install virtualenv
+## Install virtualenv
 pip install virtualenv --user
 
-##Remove directory environment if exists
+## Remove directory environment if exists
 rm -r environment_linux
 
 
@@ -65,16 +63,16 @@ python3 -m virtualenv  environment_linux --python=python3.6 && source ./environm
 
 --------------------------------------------------------------------------------------------------------------
 
-##Run App
+## Run App
 python manage.py runserver 0.0.0.0:8080
 
-##go to 
+## Go to 
 http://127.0.0.1:8080/
 
 
 
 -------------------------------------------------------
-#IMPORTANT WHEN DEPLOYING:
+# IMPORTANT WHEN DEPLOYING:
 Both environments are needed for deployment
 linux environment is needed to manage backend and cron jobs 
 windows environment is needed to run apache
